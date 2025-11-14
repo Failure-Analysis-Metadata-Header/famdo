@@ -1,2 +1,4 @@
-# famdo
-FA Metadata Organizer
+# famdo - FA Metadata Organizer
+
+WIP - WORK IN PROGRESS
+
