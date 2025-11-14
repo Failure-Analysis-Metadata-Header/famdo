@@ -1,7 +1,7 @@
 # famdo - FA Metadata Organizer
 
-`famdo` is a small CLI that validates Failure Analysis (FA) Metadata Header
-JSON documents against the public FA schema. It can validate both v1 and v2
+`famdo` is a small CLI tool for managing the Failure Analysis (FA) Metadata Header format.
+Currently, the tool can validate any FA Metadata Header against the public schema. It can validate both v1 and v2
 schemas by downloading the canonical schema fragments directly from the
 `fa-metadata-schema` repository and caching them locally for faster re-use.
 
@@ -23,23 +23,7 @@ reuse the cached copy unless `--no-cache` is supplied.
 ## Usage
 
 ```bash
-./famdo validate <path-to-json> [--version <v1|v2>] [--no-cache]
-```
-
-## Example
-
-Validate the provided v2 sample payload:
-
-```bash
-./famdo validate testdata/schema/v2/examples/complete_example_v2.json --version v2
-```
-
-Example output:
-
-```
-general section is valid.
-method section is valid.
-FA Metadata Header is valid!
+famdo validate <path-to-json> [--version <v1|v2>] [--no-cache]
 ```
 
 If a section fails validation, the command prints the first failing rule along
