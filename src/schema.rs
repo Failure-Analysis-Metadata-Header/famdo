@@ -102,12 +102,9 @@ impl SchemaCache {
         version: SchemaVersion,
         use_cache: bool,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let start = std::time::Instant::now();
-
         // Try to load from cache first if caching is enabled
         if use_cache {
             if let Ok(cache) = Self::load_from_cache(version).await {
-                eprintln!("Loaded schemas from cache in {:?}", start.elapsed());
                 return Ok(cache);
             }
         }
@@ -133,7 +130,6 @@ impl SchemaCache {
         // Save to cache (don't fail if cache write fails)
         let _ = cache.save_to_cache(version).await;
 
-        eprintln!("Downloaded all schemas in {:?}", start.elapsed());
         Ok(cache)
     }
 

@@ -8,8 +8,6 @@ pub async fn validate_json(
     version: SchemaVersion,
     no_cache: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    // Load schema validator
-    let start = std::time::Instant::now();
     let schema_cache = SchemaCache::download_all(version, !no_cache).await?;
     let json_file = load_json(json_file_path)?;
     let mut json_valid: bool = true;
@@ -28,7 +26,6 @@ pub async fn validate_json(
             }
         }
     }
-    eprintln!("Validation took {}ms", start.elapsed().as_millis());
     Ok(json_valid)
 }
 
