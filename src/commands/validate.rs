@@ -1,11 +1,16 @@
-use crate::schema::{SchemaCache, SchemaType};
+use crate::schema::{SchemaCache, SchemaType, SchemaVersion};
 use colored::Colorize;
 use jsonschema;
 use serde_json::Value;
 
-pub fn validate_json(json_file_path: &str) -> Result<bool, Box<dyn std::error::Error>> {
+pub async fn validate_json(
+    json_file_path: &str,
+    version: SchemaVersion,
+    no_cache: bool,
+) -> Result<bool, Box<dyn std::error::Error>> {
     // Load schema validator
-    let schema_cache = SchemaCache::download_all()?;
+    let start = std::time::Instant::now();
+    let schema_cache = SchemaCache::download_all(version, !no_cache).await?;
     let json_file = load_json(json_file_path)?;
     let mut json_valid: bool = true;
 
@@ -23,6 +28,7 @@ pub fn validate_json(json_file_path: &str) -> Result<bool, Box<dyn std::error::E
             }
         }
     }
+    eprintln!("Validation took {}ms", start.elapsed().as_millis());
     Ok(json_valid)
 }
 

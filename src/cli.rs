@@ -1,5 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 
+use crate::schema::SchemaVersion;
+
 #[derive(Parser)]
 #[command(name = "famdo")]
 #[command(version = "0.1.0")]
@@ -18,6 +20,9 @@ pub enum Commands {
 pub struct ValidateArgs {
     pub path: String,
 
-    #[arg(short, long, default_value = "v1.0")]
-    pub schema: String,
+    #[arg(short, long, value_enum, default_value_t = SchemaVersion::V2)]
+    pub version: SchemaVersion,
+
+    #[arg(short, long, default_value_t = false)]
+    pub no_cache: bool,
 }

@@ -1,5 +1,51 @@
+use clap::ValueEnum;
 use serde_json::Value;
 use std::fmt;
+use std::path::PathBuf;
+use tokio::fs;
+
+const SCHEMA_BASE_URL: &str = "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads";
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum SchemaVersion {
+    #[value(name = "v1")]
+    V1,
+    #[value(name = "v2")]
+    V2,
+}
+
+impl SchemaVersion {
+    fn branch(&self) -> &'static str {
+        match self {
+            SchemaVersion::V1 => "master",
+            SchemaVersion::V2 => "schema-v2",
+        }
+    }
+
+    fn folder(&self) -> &'static str {
+        match self {
+            SchemaVersion::V1 => "v1",
+            SchemaVersion::V2 => "v2",
+        }
+    }
+
+    fn cache_dir_name(&self) -> &'static str {
+        match self {
+            SchemaVersion::V1 => "v1",
+            SchemaVersion::V2 => "v2",
+        }
+    }
+
+    pub fn url_for(&self, schema_type: SchemaType) -> String {
+        format!(
+            "{}/{}/schema/{}/{}",
+            SCHEMA_BASE_URL,
+            self.branch(),
+            self.folder(),
+            schema_type.file_name()
+        )
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum SchemaType {
@@ -12,26 +58,14 @@ pub enum SchemaType {
 }
 
 impl SchemaType {
-    pub fn url(&self) -> &'static str {
+    fn file_name(&self) -> &'static str {
         match self {
-            SchemaType::General => {
-                "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads/schema-v2/schema/v2/generalSection.json"
-            }
-            SchemaType::Customer => {
-                "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads/schema-v2/schema/v2/customerSection.json"
-            }
-            SchemaType::Tool => {
-                "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads/schema-v2/schema/v2/toolSpecific.json"
-            }
-            SchemaType::Method => {
-                "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads/schema-v2/schema/v2/methodSpecific.json"
-            }
-            SchemaType::DataEvaluation => {
-                "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads/schema-v2/schema/v2/dataEvaluation.json"
-            }
-            SchemaType::History => {
-                "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads/schema-v2/schema/v2/historySection.json"
-            }
+            SchemaType::General => "generalSection.json",
+            SchemaType::Customer => "customerSection.json",
+            SchemaType::Tool => "toolSpecific.json",
+            SchemaType::Method => "methodSpecific.json",
+            SchemaType::DataEvaluation => "dataEvaluation.json",
+            SchemaType::History => "historySection.json",
         }
     }
 
@@ -64,15 +98,43 @@ pub struct SchemaCache {
 
 impl SchemaCache {
     // Download all schemas from GitHub
-    pub fn download_all() -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(SchemaCache {
-            general: download_and_parse_schema(&SchemaType::General)?,
-            customer: download_and_parse_schema(&SchemaType::Customer)?,
-            tool: download_and_parse_schema(&SchemaType::Tool)?,
-            method: download_and_parse_schema(&SchemaType::Method)?,
-            data_evaluation: download_and_parse_schema(&SchemaType::DataEvaluation)?,
-            history: download_and_parse_schema(&SchemaType::History)?,
-        })
+    pub async fn download_all(
+        version: SchemaVersion,
+        use_cache: bool,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let start = std::time::Instant::now();
+
+        // Try to load from cache first if caching is enabled
+        if use_cache {
+            if let Ok(cache) = Self::load_from_cache(version).await {
+                eprintln!("Loaded schemas from cache in {:?}", start.elapsed());
+                return Ok(cache);
+            }
+        }
+
+        let (general, customer, tool, method, data_evaluation, history) = tokio::join!(
+            download_and_parse_schema(SchemaType::General, version),
+            download_and_parse_schema(SchemaType::Customer, version),
+            download_and_parse_schema(SchemaType::Tool, version),
+            download_and_parse_schema(SchemaType::Method, version),
+            download_and_parse_schema(SchemaType::DataEvaluation, version),
+            download_and_parse_schema(SchemaType::History, version),
+        );
+
+        let cache = SchemaCache {
+            general: general?,
+            customer: customer?,
+            tool: tool?,
+            method: method?,
+            data_evaluation: data_evaluation?,
+            history: history?,
+        };
+
+        // Save to cache (don't fail if cache write fails)
+        let _ = cache.save_to_cache(version).await;
+
+        eprintln!("Downloaded all schemas in {:?}", start.elapsed());
+        Ok(cache)
     }
 
     // Get a single schema
@@ -86,11 +148,61 @@ impl SchemaCache {
             SchemaType::History => &self.history,
         }
     }
+
+    // Load all schemas from cache directory
+    async fn load_from_cache(version: SchemaVersion) -> Result<Self, Box<dyn std::error::Error>> {
+        let cache_dir = get_cache_dir(version)?;
+
+        let general = load_schema_from_file(&cache_dir, SchemaType::General).await?;
+        let customer = load_schema_from_file(&cache_dir, SchemaType::Customer).await?;
+        let tool = load_schema_from_file(&cache_dir, SchemaType::Tool).await?;
+        let method = load_schema_from_file(&cache_dir, SchemaType::Method).await?;
+        let data_evaluation = load_schema_from_file(&cache_dir, SchemaType::DataEvaluation).await?;
+        let history = load_schema_from_file(&cache_dir, SchemaType::History).await?;
+
+        Ok(SchemaCache {
+            general,
+            customer,
+            tool,
+            method,
+            data_evaluation,
+            history,
+        })
+    }
+
+    // Save all schemas to cache directory
+    async fn save_to_cache(
+        &self,
+        version: SchemaVersion,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let cache_dir = get_cache_dir(version)?;
+
+        // Create cache directory if it doesn't exist
+        fs::create_dir_all(&cache_dir).await.ok();
+
+        save_schema_to_file(&cache_dir, SchemaType::General, &self.general).await?;
+        save_schema_to_file(&cache_dir, SchemaType::Customer, &self.customer).await?;
+        save_schema_to_file(&cache_dir, SchemaType::Tool, &self.tool).await?;
+        save_schema_to_file(&cache_dir, SchemaType::Method, &self.method).await?;
+        save_schema_to_file(
+            &cache_dir,
+            SchemaType::DataEvaluation,
+            &self.data_evaluation,
+        )
+        .await?;
+        save_schema_to_file(&cache_dir, SchemaType::History, &self.history).await?;
+
+        Ok(())
+    }
 }
 
-pub fn download_schema(schema_type: &SchemaType) -> Result<String, Box<dyn std::error::Error>> {
-    let url = schema_type.url();
-    let response = reqwest::blocking::get(url).map_err(|e| {
+async fn download_schema(
+    schema_type: SchemaType,
+    version: SchemaVersion,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let url = version.url_for(schema_type);
+    let client = reqwest::Client::new();
+    let response = client.get(&url).send().await.map_err(|e| {
         format!(
             "Failed to download {} schema from {}: {}",
             schema_type, url, e
@@ -102,7 +214,7 @@ pub fn download_schema(schema_type: &SchemaType) -> Result<String, Box<dyn std::
             schema_type, url, e
         )
     })?;
-    response.text().map_err(|e| {
+    response.text().await.map_err(|e| {
         format!(
             "Failed to read {} schema body from {}: {}",
             schema_type, url, e
@@ -112,24 +224,58 @@ pub fn download_schema(schema_type: &SchemaType) -> Result<String, Box<dyn std::
 }
 
 pub fn parse_schema(
-    schema_type: &SchemaType,
+    schema_type: SchemaType,
     schema_text: &str,
+    version: SchemaVersion,
 ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let url = version.url_for(schema_type);
     serde_json::from_str(schema_text).map_err(|e| {
         format!(
             "Failed to parse {} schema downloaded from {}: {}",
-            schema_type,
-            schema_type.url(),
-            e
+            schema_type, url, e
         )
         .into()
     })
 }
 
-pub fn download_and_parse_schema(
-    schema_type: &SchemaType,
+async fn download_and_parse_schema(
+    schema_type: SchemaType,
+    version: SchemaVersion,
 ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    let schema_text = download_schema(schema_type)?;
-    let schema = parse_schema(schema_type, &schema_text)?;
+    let schema_text = download_schema(schema_type, version).await?;
+    let schema = parse_schema(schema_type, &schema_text, version)?;
     Ok(schema)
+}
+
+// Get the cache directory for schemas
+fn get_cache_dir(version: SchemaVersion) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let cache_dir = dirs::cache_dir()
+        .ok_or("Could not determine cache directory")?
+        .join("famdo")
+        .join("schemas")
+        .join(version.cache_dir_name());
+    Ok(cache_dir)
+}
+
+// Load a single schema from cache file
+async fn load_schema_from_file(
+    cache_dir: &PathBuf,
+    schema_type: SchemaType,
+) -> Result<Value, Box<dyn std::error::Error>> {
+    let file_path = cache_dir.join(schema_type.file_name());
+    let content = fs::read_to_string(&file_path).await?;
+    let schema = serde_json::from_str(&content)?;
+    Ok(schema)
+}
+
+// Save a single schema to cache file
+async fn save_schema_to_file(
+    cache_dir: &PathBuf,
+    schema_type: SchemaType,
+    schema: &Value,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let file_path = cache_dir.join(schema_type.file_name());
+    let content = serde_json::to_string(schema)?;
+    fs::write(&file_path, content).await?;
+    Ok(())
 }
