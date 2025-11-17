@@ -1,7 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
 use famdo::cli::{Cli, Commands};
-use famdo::commands::extract::exctract_metadata;
+use famdo::commands::extract::extract_metadata;
 use famdo::commands::validate::validate_json;
 
 #[tokio::main]
@@ -23,7 +23,7 @@ async fn main() {
                 }
             }
         }
-        Commands::Extract(args) => match exctract_metadata(&args.path, &args.out) {
+        Commands::Extract(args) => match extract_metadata(&args.path, &args.out) {
             Ok(_) => {
                 println!("Extracted image metadata and saved to {}", &args.out);
             }
