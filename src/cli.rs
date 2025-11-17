@@ -14,6 +14,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     Validate(ValidateArgs),
+    Extract(ExtractArgs),
 }
 
 #[derive(Args, Clone)]
@@ -25,4 +26,12 @@ pub struct ValidateArgs {
 
     #[arg(short, long, default_value_t = false)]
     pub no_cache: bool,
+}
+
+#[derive(Args, Clone)]
+pub struct ExtractArgs {
+    pub path: String,
+
+    #[arg(short, long, default_value = "extracted_metadata.json")]
+    pub out: String,
 }
