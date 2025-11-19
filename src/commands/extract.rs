@@ -30,6 +30,7 @@ pub fn extract_metadata(
             }
         }
     }
+    println!("Extracted {} tags", tags.len());
 
     let metadata = json!({
         "filename": image_path,
