@@ -3,6 +3,7 @@ use colored::Colorize;
 use famdo::cli::{Cli, Commands};
 use famdo::commands::extract::extract_metadata;
 use famdo::commands::validate::validate_json;
+use famdo::commands::map::map_metadata;
 
 #[tokio::main]
 async fn main() {
@@ -31,5 +32,6 @@ async fn main() {
                 println!("Could not extract metadata: {e}")
             }
         },
+        Commands::Map(args) => 
     }
 }
