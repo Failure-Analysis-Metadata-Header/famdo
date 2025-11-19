@@ -15,6 +15,7 @@ pub struct Cli {
 pub enum Commands {
     Validate(ValidateArgs),
     Extract(ExtractArgs),
+    Map(MapArgs),
 }
 
 #[derive(Args, Clone)]
@@ -26,6 +27,14 @@ pub struct ValidateArgs {
 
     #[arg(short, long, default_value_t = false)]
     pub no_cache: bool,
+}
+
+#[derive(Args, Clone)]
+pub struct MapArgs {
+    pub image: String,
+
+    #[arg(short, long)]
+    pub connector: String,
 }
 
 #[derive(Args, Clone)]
