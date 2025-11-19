@@ -4,7 +4,7 @@ use std::io::BufReader;
 use tiff::decoder::Decoder;
 use tiff::decoder::ifd;
 
-///Extract metadata from a TIFF file and save it to a JSON file.
+/// Extract metadata from a TIFF file and save it to a JSON file.
 pub fn extract_metadata(
     image_path: &str,
     out_path: &str,
@@ -45,7 +45,7 @@ pub fn extract_metadata(
     Ok(true)
 }
 
-/// Extract the value and type from an ifd::Value
+/// Extract the value and type from an ifd::Value.
 fn extract_value(ifd_value: &ifd::Value) -> (Value, &'static str) {
     match ifd_value {
         ifd::Value::Byte(val) => (json!(val), "Byte"),
@@ -57,7 +57,7 @@ fn extract_value(ifd_value: &ifd::Value) -> (Value, &'static str) {
         ifd::Value::Float(val) => (json!(val), "Float"),
         ifd::Value::Double(val) => (json!(val), "Double"),
         ifd::Value::List(vals) => (
-            json!(vals.iter().map(|v| extract_value(v)).collect::<Vec<_>>()),
+            json!(vals.iter().map(|v| extract_value(v).0).collect::<Vec<_>>()),
             "List",
         ),
         ifd::Value::Unsigned(val) => (json!(val), "Unsigned"),
