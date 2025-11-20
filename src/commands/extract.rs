@@ -5,15 +5,37 @@ use tiff::decoder::Decoder;
 use tiff::decoder::ifd;
 
 /// Extract metadata from a TIFF file and save it to a JSON file.
-pub fn extract_metadata(
-    image_path: &str,
-    out_path: &str,
-) -> Result<bool, Box<dyn std::error::Error>> {
+pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let file = File::open(image_path)?;
     let mut decoder = Decoder::new(BufReader::new(file))?;
     let (width, height) = decoder.dimensions()?;
     println!("Dimensions: {} x {}", width, height);
 
+    let mut tags = Vec::new();
+    let tiff_tags = extract_tiff_metadata_tags(&decoder)?;
+
+    let metadata = json!({
+        "filename": image_path,
+        "dimensions": {
+            "width": width,
+            "height": height,
+        },
+        "tags": tiff_tags,
+    });
+    Ok(metadata)
+}
+
+pub fn extract_and_save_metadata(
+    image_path: &str,
+    out_path: &str,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let metadata = extract_metadata(&image_path)?;
+    let outfile = File::create(out_path)?;
+    serde_json::to_writer_pretty(outfile, &metadata)?;
+    Ok(true)
+}
+
+pub fn extract_tiff_metadata_tags(decoder: &Decoder) -> Result<Value, Box<dyn std::error::Error>> {
     let mut tags = Vec::new();
     for tag_result in decoder.tag_iter() {
         match tag_result {
@@ -31,18 +53,7 @@ pub fn extract_metadata(
         }
     }
     println!("Extracted {} tags", tags.len());
-
-    let metadata = json!({
-        "filename": image_path,
-        "dimensions": {
-            "width": width,
-            "height": height,
-        },
-        "tags": tags,
-    });
-    let outfile = File::create(out_path)?;
-    serde_json::to_writer_pretty(outfile, &metadata)?;
-    Ok(true)
+    Ok(json!(tags))
 }
 
 /// Extract the value and type from an ifd::Value.

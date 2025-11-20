@@ -1,7 +1,7 @@
 use crate::schema::{SchemaCache, SchemaType, SchemaVersion};
+use crate::utils::load_json;
 use colored::Colorize;
 use jsonschema;
-use serde_json::Value;
 
 pub async fn validate_json(
     json_file_path: &str,
@@ -27,9 +27,4 @@ pub async fn validate_json(
         }
     }
     Ok(json_valid)
-}
-
-fn load_json(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
-    let json_text = std::fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&json_text)?)
 }
