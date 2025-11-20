@@ -35,6 +35,9 @@ pub struct MapArgs {
 
     #[arg(short, long)]
     pub connector: String,
+
+    #[arg(short, long, default_value = "mapped_output.json")]
+    pub out: String,
 }
 
 #[derive(Args, Clone)]

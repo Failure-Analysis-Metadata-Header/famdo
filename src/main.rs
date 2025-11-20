@@ -2,8 +2,8 @@ use clap::Parser;
 use colored::Colorize;
 use famdo::cli::{Cli, Commands};
 use famdo::commands::extract::extract_and_save_metadata;
-use famdo::commands::validate::validate_json;
 use famdo::commands::map::map_metadata;
+use famdo::commands::validate::validate_json;
 
 #[tokio::main]
 async fn main() {
@@ -32,6 +32,13 @@ async fn main() {
                 println!("Could not extract metadata: {e}")
             }
         },
-        Commands::Map(args) => 
+        Commands::Map(args) => match map_metadata(&args.image, &args.connector, &args.out) {
+            Ok(output) => {
+                println!("{}", serde_json::to_string_pretty(&output).unwrap());
+            }
+            Err(e) => {
+                eprintln!("{}", format!("Error mapping metadata: {}", e).red());
+            }
+        },
     }
 }

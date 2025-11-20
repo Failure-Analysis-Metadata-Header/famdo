@@ -11,8 +11,7 @@ pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::E
     let (width, height) = decoder.dimensions()?;
     println!("Dimensions: {} x {}", width, height);
 
-    let mut tags = Vec::new();
-    let tiff_tags = extract_tiff_metadata_tags(&decoder)?;
+    let tiff_tags = extract_tiff_metadata_tags(&mut decoder)?;
 
     let metadata = json!({
         "filename": image_path,
@@ -35,7 +34,9 @@ pub fn extract_and_save_metadata(
     Ok(true)
 }
 
-pub fn extract_tiff_metadata_tags(decoder: &Decoder) -> Result<Value, Box<dyn std::error::Error>> {
+pub fn extract_tiff_metadata_tags<R: std::io::Read + std::io::Seek>(
+    decoder: &mut Decoder<R>,
+) -> Result<Value, Box<dyn std::error::Error>> {
     let mut tags = Vec::new();
     for tag_result in decoder.tag_iter() {
         match tag_result {
