@@ -245,3 +245,141 @@ fn apply_transform(value: Value, transform: &str) -> Result<Value, Box<dyn std::
         _ => Ok(value), // Unknown transform, return as-is
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_extract_simple_path() {
+        let metadata = json!({
+            "filename": "test.tiff",
+            "dimensions": {
+                "width": 640,
+                "height": 480
+            }
+        });
+
+        let result = extract_simple_path(&metadata, "filename");
+        assert_eq!(result, Some(json!("test.tiff")));
+
+        let result = extract_simple_path(&metadata, "dimensions.width");
+        assert_eq!(result, Some(json!(640)));
+
+        let result = extract_simple_path(&metadata, "nonexistent");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_apply_transform_extract_basename() {
+        let value = json!("path/to/test.tiff");
+        let result = apply_transform(value, "extract_basename").unwrap();
+        assert_eq!(result, json!("test.tiff"));
+    }
+
+    #[test]
+    fn test_apply_transform_extract_extension() {
+        let value = json!("test.tiff");
+        let result = apply_transform(value, "extract_extension").unwrap();
+        assert_eq!(result, json!(".tiff"));
+    }
+
+    #[test]
+    fn test_apply_transform_extract_first_numeric() {
+        let value = json!([8, 8, 8, 8]);
+        let result = apply_transform(value, "extract_first_numeric").unwrap();
+        assert_eq!(result, json!(8));
+    }
+
+    #[test]
+    fn test_apply_transform_resolution_to_nanometers() {
+        let value = json!("96000/1000");
+        let result = apply_transform(value, "resolution_to_nanometers").unwrap();
+        // 96 DPI -> (25400000 / 96) = 264583 nm
+        assert_eq!(result, json!(264583));
+    }
+
+    #[test]
+    fn test_apply_transform_clean_string() {
+        let value = json!("  test string  ");
+        let result = apply_transform(value, "clean_string").unwrap();
+        assert_eq!(result, json!("test string"));
+    }
+
+    #[test]
+    fn test_format_output_with_unit() {
+        let config = json!({
+            "unit": "px"
+        });
+        let result = format_output(Some(json!(640)), &config).unwrap();
+        assert_eq!(result, Some(json!({"value": 640, "unit": "px"})));
+    }
+
+    #[test]
+    fn test_format_output_with_transform() {
+        let config = json!({
+            "transform": "extract_basename"
+        });
+        let result = format_output(Some(json!("path/to/file.tiff")), &config).unwrap();
+        assert_eq!(result, Some(json!("file.tiff")));
+    }
+
+    #[test]
+    fn test_extract_field_with_default() {
+        let metadata = json!({});
+        let config = json!({
+            "default": "Optical"
+        });
+        let result = extract_field(&metadata, &config).unwrap();
+        assert_eq!(result, Some(json!("Optical")));
+    }
+
+    #[test]
+    fn test_extract_field_with_fallback() {
+        let metadata = json!({});
+        let config = json!({
+            "source": "nonexistent",
+            "fallback": "Unknown"
+        });
+        let result = extract_field(&metadata, &config).unwrap();
+        assert_eq!(result, Some(json!("Unknown")));
+    }
+
+    #[test]
+    fn test_apply_mapping_basic() {
+        let metadata = json!({
+            "filename": "test.tiff",
+            "dimensions": {
+                "width": 640,
+                "height": 480
+            }
+        });
+
+        let connector = json!({
+            "mappings": {
+                "generalSection": {
+                    "fileName": {
+                        "source": "filename",
+                        "transform": "extract_basename"
+                    },
+                    "imageWidth": {
+                        "source": "dimensions.width",
+                        "unit": "px"
+                    },
+                    "method": {
+                        "default": "Optical"
+                    }
+                }
+            }
+        });
+
+        let result = apply_mapping(&metadata, &connector).unwrap();
+        assert!(result.get("generalSection").is_some());
+
+        let general = &result["generalSection"];
+        assert_eq!(general["fileName"], json!("test.tiff"));
+        assert_eq!(general["imageWidth"], json!({"value": 640, "unit": "px"}));
+        assert_eq!(general["method"], json!("Optical"));
+    }
+}

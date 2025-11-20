@@ -275,3 +275,82 @@ async fn save_schema_to_file(
     fs::write(&file_path, content).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_schema_version_branch() {
+        assert_eq!(SchemaVersion::V1.branch(), "master");
+        assert_eq!(SchemaVersion::V2.branch(), "schema-v2");
+    }
+
+    #[test]
+    fn test_schema_version_folder() {
+        assert_eq!(SchemaVersion::V1.folder(), "v1");
+        assert_eq!(SchemaVersion::V2.folder(), "v2");
+    }
+
+    #[test]
+    fn test_schema_type_file_name() {
+        assert_eq!(SchemaType::General.file_name(), "generalSection.json");
+        assert_eq!(SchemaType::Customer.file_name(), "customerSection.json");
+        assert_eq!(SchemaType::Tool.file_name(), "toolSpecific.json");
+        assert_eq!(SchemaType::Method.file_name(), "methodSpecific.json");
+        assert_eq!(SchemaType::DataEvaluation.file_name(), "dataEvaluation.json");
+        assert_eq!(SchemaType::History.file_name(), "historySection.json");
+    }
+
+    #[test]
+    fn test_schema_type_label() {
+        assert_eq!(SchemaType::General.label(), "general");
+        assert_eq!(SchemaType::Customer.label(), "customer");
+        assert_eq!(SchemaType::Tool.label(), "tool");
+        assert_eq!(SchemaType::Method.label(), "method");
+        assert_eq!(SchemaType::DataEvaluation.label(), "data evaluation");
+        assert_eq!(SchemaType::History.label(), "history");
+    }
+
+    #[test]
+    fn test_schema_version_url_for() {
+        let url = SchemaVersion::V2.url_for(SchemaType::General);
+        assert!(url.contains("schema-v2"));
+        assert!(url.contains("v2"));
+        assert!(url.contains("generalSection.json"));
+        assert!(url.starts_with(SCHEMA_BASE_URL));
+    }
+
+    #[test]
+    fn test_parse_schema_valid() {
+        let schema_text = r#"{"$schema": "http://json-schema.org/draft-07/schema#"}"#;
+        let result = parse_schema(SchemaType::General, schema_text, SchemaVersion::V2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_schema_invalid() {
+        let schema_text = "not valid json";
+        let result = parse_schema(SchemaType::General, schema_text, SchemaVersion::V2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_schema_cache_get() {
+        let cache = SchemaCache {
+            general: serde_json::json!({"type": "general"}),
+            customer: serde_json::json!({"type": "customer"}),
+            tool: serde_json::json!({"type": "tool"}),
+            method: serde_json::json!({"type": "method"}),
+            data_evaluation: serde_json::json!({"type": "data_evaluation"}),
+            history: serde_json::json!({"type": "history"}),
+        };
+
+        assert_eq!(cache.get(SchemaType::General), &serde_json::json!({"type": "general"}));
+        assert_eq!(cache.get(SchemaType::Customer), &serde_json::json!({"type": "customer"}));
+        assert_eq!(cache.get(SchemaType::Tool), &serde_json::json!({"type": "tool"}));
+        assert_eq!(cache.get(SchemaType::Method), &serde_json::json!({"type": "method"}));
+        assert_eq!(cache.get(SchemaType::DataEvaluation), &serde_json::json!({"type": "data_evaluation"}));
+        assert_eq!(cache.get(SchemaType::History), &serde_json::json!({"type": "history"}));
+    }
+}

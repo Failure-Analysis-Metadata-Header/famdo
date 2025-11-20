@@ -347,6 +347,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_json_path",
+ "tempfile",
  "tiff",
  "tokio",
 ]
