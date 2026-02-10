@@ -1,0 +1,130 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "TIFF to FAM v2 Connector",
+    "description": "Maps extracted TIFF metadata to FAM v2 schema format",
+    "version": "1.0",
+    "type": "object",
+    "mappings": {
+        "generalSection": {
+            "fileName": {
+                "source": "filename",
+                "required": true,
+                "transform": "extract_basename"
+            },
+            "fileFormat": {
+                "source": "filename",
+                "required": false,
+                "transform": "extract_extension"
+            },
+            "timeStamp": {
+                "source": "tags[?tag=='DateTime'].value",
+                "required": true,
+                "transform": "tiff_datetime_to_iso8601",
+                "fallback": "current_timestamp"
+            },
+            "manufacturer": {
+                "source": "tags[?tag=='Make'].value",
+                "required": true,
+                "transform": "clean_string",
+                "fallback": "Unknown"
+            },
+            "toolName": {
+                "source": "tags[?tag=='Model'].value",
+                "required": true,
+                "transform": "clean_string",
+                "fallback": "Unknown"
+            },
+            "method": {
+                "source": null,
+                "required": true,
+                "default": "Optical"
+            },
+            "imageWidth": {
+                "source": "dimensions.width",
+                "required": false,
+                "unit": "px"
+            },
+            "imageHeight": {
+                "source": "dimensions.height",
+                "required": false,
+                "unit": "px"
+            },
+            "pixelWidth": {
+                "source": "tags[?tag=='XResolution'].value",
+                "required": false,
+                "transform": "resolution_to_nanometers",
+                "unit": "nm"
+            },
+            "pixelHeight": {
+                "source": "tags[?tag=='YResolution'].value",
+                "required": false,
+                "transform": "resolution_to_nanometers",
+                "unit": "nm"
+            },
+            "bitDepth": {
+                "source": "tags[?tag=='BitsPerSample'].value",
+                "required": false,
+                "transform": "extract_first_numeric"
+            }
+        },
+        "methodSpecific": {
+            "opticalMicroscopy": {
+                "objectiveMagnification": {
+                    "source": null,
+                    "required": false,
+                    "default": null
+                }
+            }
+        }
+    },
+    "transformations": {
+        "extract_basename": {
+            "description": "Extract filename without path",
+            "implementation": "Get last component of path"
+        },
+        "extract_extension": {
+            "description": "Extract file extension (e.g., .tiff)",
+            "implementation": "Get extension from filename"
+        },
+        "clean_string": {
+            "description": "Remove null bytes and trim whitespace",
+            "implementation": "Strip nulls and control chars, trim"
+        },
+        "tiff_datetime_to_iso8601": {
+            "description": "Convert TIFF DateTime format to ISO8601",
+            "implementation": "Parse 'YYYY:MM:DD HH:MM:SS' to 'YYYY-MM-DDTHH:MM:SS+TZ'"
+        },
+        "current_timestamp": {
+            "description": "Use current timestamp as fallback",
+            "implementation": "Generate current ISO8601 timestamp"
+        },
+        "resolution_to_nanometers": {
+            "description": "Convert DPI to pixel size in nanometers",
+            "implementation": "Calculate (25.4mm * 1e6 nm/mm) / DPI"
+        },
+        "extract_first_numeric": {
+            "description": "Extract first numeric value from list or single value",
+            "implementation": "Parse first number from BitsPerSample list"
+        }
+    },
+    "validation": {
+        "required_sections": [
+            "generalSection",
+            "methodSpecific"
+        ],
+        "required_fields": {
+            "generalSection": [
+                "fileName",
+                "timeStamp",
+                "manufacturer",
+                "toolName",
+                "method"
+            ]
+        }
+    },
+    "notes": {
+        "extracted_format": "Expects input in format: { filename, dimensions: {width, height}, tags: [{tag, type, value}] }",
+        "output_format": "Produces FAM v2 compliant JSON with generalSection and methodSpecific",
+        "method_default": "Defaults to 'Optical' method unless specified otherwise"
+    }
+}
