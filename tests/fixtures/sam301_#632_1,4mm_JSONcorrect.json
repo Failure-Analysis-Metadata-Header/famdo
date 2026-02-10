@@ -1,0 +1,139 @@
+{
+  "ImagePath": "",
+  "GeneralSection": {
+    "File Path": "J:\\2024\\24FH0119\\09_HFSAM_Wn",
+    "File Name": "sam301_#632_1,4mm_JSON.TIFF",
+    "File format": ".tiff",
+    "File Size": 0,
+    "Logfile Path": "c:\\pva\\winsam8\\logs",
+    "Previous Header File": "mark3.json",
+    "Header Type": "FA4.0 standardized header",
+    "Version": "v1.0",
+    "TimeStamp": "2025-02-26 12:01:06",
+    "Manufacturer": "PVA Analytical Systems",
+    "Tool Name": "",
+    "Serial Number": "",
+    "Method": "SAM",
+    "Image Width": 4315,
+    "Image Length": 3377,
+    "Pixel Length": 2000.0,
+    "Pixel Width": 2000.0,
+    "Bit Depth": 8,
+    "Compressed Bits/Pixel": 0.0,
+    "Color Mode": "indexed",
+    "Customer": "",
+    "Coordinates Sub Section": {
+      "Stage Coordinate System Orientation": "left handed",
+      "global or local frame movement": 1,
+      "Relative Orientation to screens coordinate frame": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Stage Coordinates X Y Z": [
+        161168.4,
+        279183.9,
+        71435.0
+      ],
+      "Stage Rotation Rx": 0.0,
+      "Stage Rotation Ry": 0.0,
+      "Stage Rotation Rz": 0.0
+    },
+    "Alignment Marks Subsection": {
+      "Position of the Fiducials": {
+        "Mark1": [
+          160758.1,
+        275119.2,
+        70587.0
+
+        ],
+        "Mark2": [
+          156692.0,
+        282734.7,
+        70587.0
+
+        ],
+        "Mark3": [
+          165004.2,
+        282831.5,
+        70587.0
+
+        ]
+      },
+      "Type of Fiducials": "circle",
+      "Fiducial Size": "300 µm"
+    }
+  },
+  "MethodSpecific": {
+    "NewSubfileType": "",
+    "ImageWidth": "4315",
+    "ImageLength": "3377",
+    "BitsPerSample": "8",
+    "Compression": "None",
+    "PhotometricInterpretation": "Palette",
+    "StripOffsets": "14571755",
+    "Orientation": "TopLeft",
+    "SamplesPerPixel": "1",
+    "RowsPerStrip": "3377",
+    "StripByteCounts": "14571755",
+    "XResolution": "96.0",
+    "YResolution": "96.0",
+    "ResolutionUnit": "Inch",
+    "ColorMap": "",
+    "SampleFormat": "",
+    "CZ_SEM": ""
+  },
+  "ToolSpecific": {
+    "METHOD": "PeakBipolar",
+    "FileHeaderLength": "",
+    "date": "26.02.2025 00:00:00",
+    "FileLocation": "J:\\2024\\24FH0119\\09_HFSAM_Wn\\sam301_#632_1,4mm_JSON.TIFF",
+    "MultiPurposeFileLocation": "",
+    "TOOL": {
+      "Manufacturer": "PVA Tepla Analytical Systems GmbH",
+      "Version": "8.23.3.0",
+      "FileVSN": "8.23.3.0"
+    },
+    "SCAN": {
+      "Sequence": "",
+      "Mode": "",
+      "Width": "8630",
+      "Height": "6753,83886255924",
+      "Unit": "µm",
+      "X_NbrOfPixel": "4315",
+      "Y_NbrOfPixel": "3377",
+      "YLinesPerScan": "3377",
+      "X_CTR": "161168,369876777",
+      "Y_CTR": "279183,854109005",
+      "Z_CTR": "71435",
+      "Name": "Scan50 Gate Channel0"
+    },
+    "ADC": {
+      "SampleOffset": "0",
+      "SampleRate": "5000",
+      "SampleRateUnit": "MHz",
+      "InputRange": "0,5",
+      "NbrOfSamplesperSignal": "40095",
+      "SampleBits": "8",
+      "T_Sample_Start": "2003",
+      "T_Sample_End": "10022",
+      "DataFormat": ""
+    },
+    "PULSER": {
+      "Gain": "12dB",
+      "Name": "DPR500",
+      "Preamp_Name": "RP-H3"
+    }
+  },
+  "CustomerSpecific": {
+    "subheaderlength": "",
+    "headerIdentifier": "",
+    "Sampleorientation": "",
+    "Analysisnumber": "",
+    "SampleID": "",
+    "CustomerlogisticsSystemID": "",
+    "CustomerITSystemPath": "",
+    "CloudStorageID": "",
+    "Internal Toolname": ""
+  }
+}
