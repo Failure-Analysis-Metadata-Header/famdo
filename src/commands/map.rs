@@ -35,28 +35,18 @@ fn apply_mapping(metadata: &Value, connector: &Value) -> Result<Value, Box<dyn s
     for (section_name, section_mappings) in mappings {
         let mut section_output = json!({});
 
-        if let Some(fields) = section_mappings.as_object() {
-            for (field_name, field_config) in fields {
+        let Some(fields) = section_mappings.as_object() else {
+            continue;
+        };
+
+        for (field_name, field_config) in fields {
+            if is_nested_config(field_config) {
+                if let Some(nested_output) = process_nested_field(metadata, field_config)? {
+                    section_output[field_name] = nested_output;
+                }
+            } else {
+                // Regular field
                 if let Some(value) = extract_field(metadata, field_config)? {
-                    // Handle nested objects (e.g., methodSpecific.opticalMicroscopy)
-                    if let Some(nested) = field_config.as_object() {
-                        if nested.contains_key("objectiveMagnification")
-                            || nested.values().any(|v| v.is_object())
-                        {
-                            // This is a nested section
-                            let mut nested_output = json!({});
-                            for (nested_field, nested_config) in nested {
-                                if let Some(nested_value) = extract_field(metadata, nested_config)?
-                                {
-                                    nested_output[nested_field] = nested_value;
-                                }
-                            }
-                            if !nested_output.as_object().unwrap().is_empty() {
-                                section_output[field_name] = nested_output;
-                            }
-                            continue;
-                        }
-                    }
                     section_output[field_name] = value;
                 }
             }
@@ -70,6 +60,37 @@ fn apply_mapping(metadata: &Value, connector: &Value) -> Result<Value, Box<dyn s
     Ok(output)
 }
 
+/// Check if a field config represents a nested object structure
+fn is_nested_config(field_config: &Value) -> bool {
+    field_config
+        .as_object()
+        .map(|obj| obj.values().any(|v| v.is_object()))
+        .unwrap_or(false)
+}
+
+/// Process a nested field (e.g., methodSpecific.opticalMicroscopy)
+fn process_nested_field(
+    metadata: &Value,
+    field_config: &Value,
+) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+    let Some(nested_fields) = field_config.as_object() else {
+        return Ok(None);
+    };
+
+    let mut nested_output = json!({});
+
+    for (nested_field, nested_config) in nested_fields {
+        if let Some(nested_value) = extract_field(metadata, nested_config)? {
+            nested_output[nested_field] = nested_value;
+        }
+    }
+
+    if nested_output.as_object().unwrap().is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(nested_output))
+    }
+}
 fn extract_field(
     metadata: &Value,
     config: &Value,
