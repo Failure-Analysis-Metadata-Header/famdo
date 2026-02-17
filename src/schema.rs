@@ -424,12 +424,12 @@ impl SchemaCache {
     pub fn all_sections(&self) -> Vec<(&'static str, &Value)> {
         match self {
             SchemaCache::V1(_) => vec![
-                ("generalSection", self.general()),
-                ("customerSection", self.customer()),
-                ("toolSpecific", self.tool()),
-                ("methodSpecific", self.method()),
-                ("dataEvaluation", self.data_evaluation()),
-                ("historySection", self.history()),
+                ("General Section", self.general()),
+                ("Customer Section", self.customer()),
+                ("Tool Specific", self.tool()),
+                ("Method Specific", self.method()),
+                ("Data Evaluation", self.data_evaluation()),
+                ("History", self.history()),
             ],
             SchemaCache::V2(_) => vec![
                 ("generalSection", self.general()),
@@ -437,8 +437,15 @@ impl SchemaCache {
                 ("toolSpecific", self.tool()),
                 ("methodSpecific", self.method()),
                 ("dataEvaluation", self.data_evaluation()),
-                ("historySection", self.history()),
+                ("history", self.history()),
             ],
+        }
+    }
+
+    pub fn required_sections(&self) -> &'static [&'static str] {
+        match self {
+            SchemaCache::V1(_) => &["General Section", "Method Specific"],
+            SchemaCache::V2(_) => &["generalSection", "methodSpecific"],
         }
     }
 }

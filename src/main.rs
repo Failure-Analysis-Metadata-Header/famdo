@@ -11,7 +11,7 @@ async fn main() {
 
     match cli.command {
         Commands::Validate(args) => {
-            match validate_json(&args.path, args.version, args.no_cache).await {
+            match validate_json(&args.path, args.version, args.no_cache, args.strict).await {
                 Ok(is_valid) => {
                     if is_valid {
                         println!("FA Metadata Header is valid!");

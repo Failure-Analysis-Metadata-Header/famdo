@@ -25,3 +25,4 @@ testdata
 extracted_metadata.json
 mapped_output.json
 .DS_Store
+scratch/
