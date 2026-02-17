@@ -29,12 +29,14 @@ reuse the cached copy unless `--no-cache` is supplied.
 ### Schema Validation
 
 ```bash
-famdo validate <path-to-json> [--version <v1|v2>] [--no-cache]
+famdo validate <path-to-json> [--version <v1|v2>] [--no-cache] [--strict]
 ```
 
 If a section fails validation, the command prints the first failing rule along
-with the schema section name and exits with a non-zero status. Use `--no-cache`
-whenever you need to bypass the on-disk schema cache and force a fresh download.
+with the schema section name and exits with a non-zero status. With `--strict`,
+validation also fails when required top-level sections are missing or unknown
+top-level sections are present. Use `--no-cache` whenever you need to bypass the
+on-disk schema cache and force a fresh download.
 
 ### Metadata Extraction
 Utility function to extract metadata from a TIFF file:

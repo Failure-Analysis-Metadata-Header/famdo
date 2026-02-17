@@ -22,11 +22,14 @@ pub enum Commands {
 pub struct ValidateArgs {
     pub path: String,
 
-    #[arg(short, long, value_enum, default_value_t = SchemaVersion::V2)]
+    #[arg(short, long, value_enum, default_value_t = SchemaVersion::V1)]
     pub version: SchemaVersion,
 
     #[arg(short, long, default_value_t = false)]
     pub no_cache: bool,
+
+    #[arg(long, default_value_t = false)]
+    pub strict: bool,
 }
 
 #[derive(Args, Clone)]
