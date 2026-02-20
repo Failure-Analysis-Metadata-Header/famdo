@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "crates/famh-model"]
+resolver = "2"
+
 [package]
 name = "famdo"
 version = "0.1.1"
@@ -8,6 +12,7 @@ chrono = "0.4"
 clap = { version = "4.5.51", features = ["derive"] }
 colored = "3.0.0"
 dirs = "6.0.0"
+famh-model = { path = "crates/famh-model" }
 jsonschema = "0.33.0"
 reqwest = "0.12.24"
 serde = "1.0.228"

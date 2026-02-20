@@ -6,6 +6,9 @@ Currently supported functionality:
 - extract metadata from TIFF file and save as JSON
 - map extracted metadata to FAMH v2 format using connector configurations
 
+The repository also includes a reusable model crate:
+- `crates/famh-model`: typed Rust structs for FA metadata (`v1` and `v2`) with serde helpers.
+
 The FAMH schema is downloaded directly from the
 `fa-metadata-schema` repository and cached locally for faster re-use.
 
@@ -62,4 +65,20 @@ famdo map image.tiff -c connectors/tiff_to_fam_v2_connector.json -o output.json
 
 # Validate the mapped output
 famdo validate output.json
+```
+
+## Using the model crate
+
+Other Rust projects can consume typed FA metadata models from `famh-model`:
+
+```toml
+[dependencies]
+famh-model = { git = "https://github.com/Failure-Analysis-Metadata-Header/famdo.git" }
+```
+
+```rust
+use famh_model::v2::FaMetadataHeader;
+
+let model = FaMetadataHeader::from_str(r#"{"generalSection":{},"methodSpecific":{}}"#)?;
+let normalized = model.to_string_pretty()?;
 ```
