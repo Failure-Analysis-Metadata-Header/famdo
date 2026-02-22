@@ -28,7 +28,7 @@ pub fn extract_and_save_metadata(
     image_path: &str,
     out_path: &str,
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    let metadata = extract_metadata(&image_path)?;
+    let metadata = extract_metadata(image_path)?;
     let outfile = File::create(out_path)?;
     serde_json::to_writer_pretty(outfile, &metadata)?;
     Ok(true)

@@ -21,7 +21,7 @@ mod tests {
 
         let result = load_json(temp_file.path().to_str().unwrap());
         assert!(result.is_ok());
-        
+
         let json = result.unwrap();
         assert_eq!(json["name"], "test");
         assert_eq!(json["value"], 42);

@@ -1,5 +1,6 @@
 use crate::commands::extract::extract_metadata;
 use crate::utils::load_json;
+use famh_model::v2::FaMetadataHeader;
 use serde_json::{Value, json};
 use serde_json_path::JsonPath;
 use std::fs;
@@ -18,10 +19,13 @@ pub fn map_metadata(
     // Map to FAM v2 format
     let fam_output = apply_mapping(&tiff_metadata, &connector)?;
 
-    let outfile = fs::File::create(output_path)?;
-    serde_json::to_writer_pretty(outfile, &fam_output)?;
+    // Normalize output through typed v2 model while retaining unknown fields.
+    let typed_output = FaMetadataHeader::from_value(fam_output)?;
 
-    Ok(fam_output)
+    let outfile = fs::File::create(output_path)?;
+    typed_output.to_writer_pretty(outfile)?;
+
+    Ok(typed_output.to_value()?)
 }
 
 fn apply_mapping(metadata: &Value, connector: &Value) -> Result<Value, Box<dyn std::error::Error>> {
@@ -249,6 +253,7 @@ fn apply_transform(value: Value, transform: &str) -> Result<Value, Box<dyn std::
 #[cfg(test)]
 mod tests {
     use super::*;
+    use famh_model::v2::FaMetadataHeader;
     use serde_json::json;
 
     #[test]
@@ -381,5 +386,51 @@ mod tests {
         assert_eq!(general["fileName"], json!("test.tiff"));
         assert_eq!(general["imageWidth"], json!({"value": 640, "unit": "px"}));
         assert_eq!(general["method"], json!("Optical"));
+    }
+
+    #[test]
+    fn test_apply_mapping_output_matches_v2_model_shape() {
+        let metadata = json!({
+            "filename": "test.tiff",
+            "dimensions": {
+                "width": 640,
+                "height": 480
+            }
+        });
+
+        let connector = json!({
+            "mappings": {
+                "generalSection": {
+                    "fileName": {
+                        "source": "filename",
+                        "transform": "extract_basename"
+                    },
+                    "timeStamp": {
+                        "default": "2026-02-20T00:00:00+00:00"
+                    },
+                    "manufacturer": {
+                        "default": "Unknown"
+                    },
+                    "toolName": {
+                        "default": "Unknown"
+                    },
+                    "method": {
+                        "default": "Optical"
+                    }
+                },
+                "methodSpecific": {
+                    "opticalMicroscopy": {
+                        "objectiveMagnification": {
+                            "default": "50x"
+                        }
+                    }
+                }
+            }
+        });
+
+        let mapped = apply_mapping(&metadata, &connector).unwrap();
+        let typed = FaMetadataHeader::from_value(mapped).unwrap();
+
+        assert!(typed.general_section.is_some());
     }
 }
