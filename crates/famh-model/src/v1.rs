@@ -2,7 +2,7 @@ use crate::{ExtraFields, is_empty_map};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::{Read, Write};
-
+use std::str::FromStr;
 mod customer_section;
 mod data_evaluation;
 mod general_section;
@@ -25,24 +25,16 @@ pub use method_specific::{
 pub use tool_specific::ToolSpecific;
 pub use unit_types::{
     LegacyIntegerWithUnit, LegacyNumberArrayWithUnit, LegacyNumberWithUnit,
-    LegacyNumberWithUnitTypoValues, LegacyPointArrayWithUnit, LegacyUnitValue,
+    LegacyPointArrayWithUnit, LegacyUnitValue,
 };
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct FaMetadataHeader {
-    #[serde(
-        rename = "General Section",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub general_section: Option<GeneralSection>,
+    #[serde(rename = "General Section", default)]
+    pub general_section: GeneralSection,
 
-    #[serde(
-        rename = "Method Specific",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub method_specific: Option<MethodSpecific>,
+    #[serde(rename = "Method Specific", default)]
+    pub method_specific: MethodSpecific,
 
     #[serde(
         rename = "Customer Section",
@@ -76,11 +68,6 @@ impl FaMetadataHeader {
     pub fn from_reader<R: Read>(reader: R) -> serde_json::Result<Self> {
         crate::from_reader(reader)
     }
-
-    pub fn from_str(json: &str) -> serde_json::Result<Self> {
-        crate::from_str(json)
-    }
-
     pub fn from_value(value: Value) -> serde_json::Result<Self> {
         crate::from_value(value)
     }
@@ -95,6 +82,14 @@ impl FaMetadataHeader {
 
     pub fn to_value(&self) -> serde_json::Result<Value> {
         crate::to_value(self)
+    }
+}
+
+impl FromStr for FaMetadataHeader {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        crate::from_str(s)
     }
 }
 #[cfg(test)]
@@ -117,8 +112,6 @@ mod tests {
 
         let model = FaMetadataHeader::from_value(input).unwrap();
 
-        assert!(model.general_section.is_some());
-        assert!(model.method_specific.is_some());
         assert_eq!(model.extra.get("Custom Top Level"), Some(&json!(true)));
     }
 
@@ -174,8 +167,8 @@ mod tests {
 
         let stage_coords = model
             .general_section
+            .coordinates_sub_section
             .as_ref()
-            .and_then(|g| g.coordinates_sub_section.as_ref())
             .and_then(|c| c.stage_coordinates_x_y_z.as_ref())
             .and_then(|v| v.value.as_ref())
             .unwrap();
@@ -216,8 +209,8 @@ mod tests {
 
         let corrected_tilt = model
             .method_specific
+            .focused_ion_beam
             .as_ref()
-            .and_then(|m| m.focused_ion_beam.as_ref())
             .and_then(|f| f.corrected_tilt_angle.as_ref())
             .and_then(|a| a.value.as_ref());
 

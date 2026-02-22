@@ -17,15 +17,3 @@ pub type LegacyNumberWithUnit = LegacyUnitValue<Numeric>;
 pub type LegacyIntegerWithUnit = LegacyUnitValue<i64>;
 pub type LegacyNumberArrayWithUnit = LegacyUnitValue<Vec<Option<Numeric>>>;
 pub type LegacyPointArrayWithUnit = LegacyUnitValue<Vec<Vec<Option<Numeric>>>>;
-
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct LegacyNumberWithUnitTypoValues {
-    #[serde(rename = "values", skip_serializing_if = "Option::is_none")]
-    pub value: Option<Numeric>,
-
-    #[serde(rename = "Unit", skip_serializing_if = "Option::is_none")]
-    pub unit: Option<String>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
-}

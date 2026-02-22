@@ -1,7 +1,7 @@
 use crate::{ExtraFields, Numeric, is_empty_map};
 use serde::{Deserialize, Serialize};
 
-use super::{LegacyNumberWithUnit, LegacyNumberWithUnitTypoValues};
+use super::LegacyNumberWithUnit;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct MethodSpecific {
@@ -329,7 +329,7 @@ pub struct FocusedIonBeam {
         default,
         skip_serializing_if = "Option::is_none"
     )]
-    pub corrected_tilt_angle: Option<LegacyNumberWithUnitTypoValues>,
+    pub corrected_tilt_angle: Option<LegacyNumberWithUnit>,
 
     #[serde(
         rename = "Beam Shift X",
