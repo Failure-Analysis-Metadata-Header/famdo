@@ -2,6 +2,7 @@ use crate::{ExtraFields, is_empty_map};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::{Read, Write};
+use std::str::FromStr;
 
 mod customer_section;
 mod data_evaluation;
@@ -70,10 +71,6 @@ impl FaMetadataHeader {
         crate::from_reader(reader)
     }
 
-    pub fn from_str(json: &str) -> serde_json::Result<Self> {
-        crate::from_str(json)
-    }
-
     pub fn from_value(value: Value) -> serde_json::Result<Self> {
         crate::from_value(value)
     }
@@ -88,6 +85,14 @@ impl FaMetadataHeader {
 
     pub fn to_value(&self) -> serde_json::Result<Value> {
         crate::to_value(self)
+    }
+}
+
+impl FromStr for FaMetadataHeader {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        crate::from_str(s)
     }
 }
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use clap::ValueEnum;
 use serde_json::Value;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 
 const SCHEMA_BASE_URL: &str = "https://raw.githubusercontent.com/Failure-Analysis-Metadata-Header/fa-metadata-schema/refs/heads";
@@ -173,10 +173,8 @@ impl V1SchemaCache {
         version: SchemaVersion,
         use_cache: bool,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        if use_cache {
-            if let Ok(cache) = Self::load_from_cache(version).await {
-                return Ok(cache);
-            }
+        if use_cache && let Ok(cache) = Self::load_from_cache(version).await {
+            return Ok(cache);
         }
 
         let (general, customer, tool, method, data_evaluation, history) = tokio::join!(
@@ -271,10 +269,8 @@ impl V2SchemaCache {
         version: SchemaVersion,
         use_cache: bool,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        if use_cache {
-            if let Ok(cache) = Self::load_from_cache(version).await {
-                return Ok(cache);
-            }
+        if use_cache && let Ok(cache) = Self::load_from_cache(version).await {
+            return Ok(cache);
         }
 
         let (general, customer, tool, method, data_evaluation, history) = tokio::join!(
@@ -521,7 +517,7 @@ fn get_cache_dir(version: SchemaVersion) -> Result<PathBuf, Box<dyn std::error::
 
 // Load a single schema from cache file
 async fn load_schema_from_file<T: SchemaTypeTrait>(
-    cache_dir: &PathBuf,
+    cache_dir: &Path,
     schema_type: T,
 ) -> Result<Value, Box<dyn std::error::Error>> {
     let file_path = cache_dir.join(schema_type.file_name());
@@ -532,7 +528,7 @@ async fn load_schema_from_file<T: SchemaTypeTrait>(
 
 // Save a single schema to cache file
 async fn save_schema_to_file<T: SchemaTypeTrait>(
-    cache_dir: &PathBuf,
+    cache_dir: &Path,
     schema_type: T,
     schema: &Value,
 ) -> Result<(), Box<dyn std::error::Error>> {

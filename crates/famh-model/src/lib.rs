@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
+use std::str::FromStr;
 
 pub mod v1;
 pub mod v2;
@@ -68,12 +69,19 @@ where
         crate::from_reader(reader)
     }
 
-    pub fn from_str(json: &str) -> serde_json::Result<Self> {
-        crate::from_str(json)
-    }
-
     pub fn from_value(value: Value) -> serde_json::Result<Self> {
         crate::from_value(value)
+    }
+}
+
+impl<T> FromStr for MetadataDocument<T>
+where
+    T: DeserializeOwned,
+{
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
     }
 }
 
