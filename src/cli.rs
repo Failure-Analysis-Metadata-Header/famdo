@@ -16,6 +16,7 @@ pub enum Commands {
     Validate(ValidateArgs),
     Extract(ExtractArgs),
     Map(MapArgs),
+    Edit(EditArgs),
 }
 
 #[derive(Args, Clone)]
@@ -49,4 +50,19 @@ pub struct ExtractArgs {
 
     #[arg(short, long, default_value = "extracted_metadata.json")]
     pub out: String,
+}
+
+#[derive(Args, Clone)]
+pub struct EditArgs {
+    pub path: String,
+
+    pub field: String,
+
+    pub value: String,
+
+    #[arg(short, long, default_value = "metadata_edited.json")]
+    pub out: String,
+
+    #[arg(short, long, value_enum, default_value_t = SchemaVersion::V1)]
+    pub version: SchemaVersion,
 }
