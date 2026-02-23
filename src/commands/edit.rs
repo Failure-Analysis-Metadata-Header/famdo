@@ -45,10 +45,12 @@ pub fn edit_famh_file(
         return Err(format!("Field path not found: {pointer}").into());
     }
 
+    let updated_schema = v1::FaMetadataHeader::from_value(schema_doc)?;
+
     let out_path_ref = out_path.as_ref();
     let out_file = File::create(out_path_ref)?;
     let writer = BufWriter::new(out_file);
-    schema.to_writer_pretty(writer)?;
+    updated_schema.to_writer_pretty(writer)?;
 
     Ok(())
 }
