@@ -65,6 +65,40 @@ pub struct FaMetadataHeader {
 }
 
 impl FaMetadataHeader {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn general_section(mut self, general_section: GeneralSection) -> Self {
+        self.general_section = general_section;
+        self
+    }
+
+    pub fn method_specific(mut self, method_specific: MethodSpecific) -> Self {
+        self.method_specific = method_specific;
+        self
+    }
+
+    pub fn customer_section(mut self, customer_section: CustomerSection) -> Self {
+        self.customer_section = Some(customer_section);
+        self
+    }
+
+    pub fn tool_specific(mut self, tool_specific: ToolSpecific) -> Self {
+        self.tool_specific = Some(tool_specific);
+        self
+    }
+
+    pub fn data_evaluation(mut self, data_evaluation: DataEvaluation) -> Self {
+        self.data_evaluation = Some(data_evaluation);
+        self
+    }
+
+    pub fn history(mut self, history: HistorySection) -> Self {
+        self.history = Some(history);
+        self
+    }
+
     pub fn from_reader<R: Read>(reader: R) -> serde_json::Result<Self> {
         crate::from_reader(reader)
     }
@@ -216,5 +250,24 @@ mod tests {
 
         assert_eq!(corrected_tilt, Some(&Numeric::Float(1.5)));
         assert_eq!(model.to_value().unwrap(), input);
+    }
+
+    #[test]
+    fn builds_v1_header_with_fluent_constructors() {
+        let header = FaMetadataHeader::new()
+            .general_section(GeneralSection::new().file_name("builder-v1.tif"))
+            .method_specific(
+                MethodSpecific::new().optical_microscopy(OpticalMicroscopy::new().hdr_mode(true)),
+            )
+            .data_evaluation(DataEvaluation::new().push_point_of_interest(
+                PointOfInterest::from_f64_coordinates([10.0, 20.0], "px").with_name("POI-1"),
+            ));
+
+        let value = header.to_value().unwrap();
+        assert_eq!(
+            value["General Section"]["File Name"],
+            json!("builder-v1.tif")
+        );
+        assert_eq!(value["Data Evaluation"]["POI"][0]["Name"], json!("POI-1"));
     }
 }

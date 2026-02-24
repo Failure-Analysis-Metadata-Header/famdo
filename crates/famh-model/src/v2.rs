@@ -66,6 +66,40 @@ pub struct FaMetadataHeader {
 }
 
 impl FaMetadataHeader {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn general_section(mut self, general_section: GeneralSection) -> Self {
+        self.general_section = Some(general_section);
+        self
+    }
+
+    pub fn method_specific(mut self, method_specific: MethodSpecific) -> Self {
+        self.method_specific = Some(method_specific);
+        self
+    }
+
+    pub fn customer_specific(mut self, customer_specific: CustomerSpecific) -> Self {
+        self.customer_specific = Some(customer_specific);
+        self
+    }
+
+    pub fn tool_specific(mut self, tool_specific: ToolSpecific) -> Self {
+        self.tool_specific = Some(tool_specific);
+        self
+    }
+
+    pub fn data_evaluation(mut self, data_evaluation: DataEvaluation) -> Self {
+        self.data_evaluation = Some(data_evaluation);
+        self
+    }
+
+    pub fn history(mut self, history: History) -> Self {
+        self.history = Some(history);
+        self
+    }
+
     pub fn from_reader<R: Read>(reader: R) -> serde_json::Result<Self> {
         crate::from_reader(reader)
     }
@@ -193,5 +227,37 @@ mod tests {
 
         let serialized = model.to_value().unwrap();
         assert_eq!(serialized, input);
+    }
+
+    #[test]
+    fn builds_v2_header_with_fluent_constructors() {
+        let header = FaMetadataHeader::new()
+            .general_section(
+                GeneralSection::new()
+                    .file_name("builder.tif")
+                    .manufacturer("ZEISS")
+                    .method("Optical"),
+            )
+            .method_specific(
+                MethodSpecific::new().optical_microscopy(
+                    OpticalMicroscopy::new()
+                        .objective_magnification("50x")
+                        .hdr_mode(true),
+                ),
+            )
+            .data_evaluation(DataEvaluation::new().push_point_of_interest(
+                PointOfInterest::from_f64_coordinates([100.0, 200.0], "px").with_name("POI-1"),
+            ));
+
+        let value = header.to_value().unwrap();
+        assert_eq!(value["generalSection"]["fileName"], json!("builder.tif"));
+        assert_eq!(
+            value["methodSpecific"]["opticalMicroscopy"]["objectiveMagnification"],
+            json!("50x")
+        );
+        assert_eq!(
+            value["dataEvaluation"]["pointsOfInterest"][0]["name"],
+            json!("POI-1")
+        );
     }
 }
