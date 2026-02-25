@@ -33,7 +33,11 @@ pub struct FaMetadataHeader {
     #[serde(rename = "General Section", default)]
     pub general_section: GeneralSection,
 
-    #[serde(rename = "Method Specific", default)]
+    #[serde(
+        rename = "Method Specific",
+        default,
+        skip_serializing_if = "MethodSpecific::is_empty"
+    )]
     pub method_specific: MethodSpecific,
 
     #[serde(
@@ -65,6 +69,40 @@ pub struct FaMetadataHeader {
 }
 
 impl FaMetadataHeader {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn general_section(mut self, general_section: GeneralSection) -> Self {
+        self.general_section = general_section;
+        self
+    }
+
+    pub fn method_specific(mut self, method_specific: MethodSpecific) -> Self {
+        self.method_specific = method_specific;
+        self
+    }
+
+    pub fn customer_section(mut self, customer_section: CustomerSection) -> Self {
+        self.customer_section = Some(customer_section);
+        self
+    }
+
+    pub fn tool_specific(mut self, tool_specific: ToolSpecific) -> Self {
+        self.tool_specific = Some(tool_specific);
+        self
+    }
+
+    pub fn data_evaluation(mut self, data_evaluation: DataEvaluation) -> Self {
+        self.data_evaluation = Some(data_evaluation);
+        self
+    }
+
+    pub fn history(mut self, history: HistorySection) -> Self {
+        self.history = Some(history);
+        self
+    }
+
     pub fn from_reader<R: Read>(reader: R) -> serde_json::Result<Self> {
         crate::from_reader(reader)
     }
@@ -131,6 +169,15 @@ mod tests {
     }
 
     #[test]
+    fn omits_empty_method_specific_section_during_serialization() {
+        let header = FaMetadataHeader::new();
+
+        let serialized = header.to_value().unwrap();
+
+        assert!(serialized.get("Method Specific").is_none());
+    }
+
+    #[test]
     fn parses_nested_v1_typed_fields() {
         let input = json!({
             "General Section": {
@@ -193,8 +240,9 @@ mod tests {
     }
 
     #[test]
-    fn parses_fib_corrected_tilt_angle_values_typo() {
+    fn round_trips_fib_corrected_tilt_angle_values_typo_without_typed_value() {
         let input = json!({
+            "General Section": {},
             "Method Specific": {
                 "Focused Ion Beam": {
                     "Corrected Tilt Angle": {
@@ -213,8 +261,34 @@ mod tests {
             .as_ref()
             .and_then(|f| f.corrected_tilt_angle.as_ref())
             .and_then(|a| a.value.as_ref());
+        let corrected_tilt_raw = model
+            .method_specific
+            .focused_ion_beam
+            .as_ref()
+            .and_then(|f| f.corrected_tilt_angle.as_ref())
+            .and_then(|a| a.extra.get("values"));
 
-        assert_eq!(corrected_tilt, Some(&Numeric::Float(1.5)));
+        assert_eq!(corrected_tilt, None);
+        assert_eq!(corrected_tilt_raw, Some(&json!(1.5)));
         assert_eq!(model.to_value().unwrap(), input);
+    }
+
+    #[test]
+    fn builds_v1_header_with_fluent_constructors() {
+        let header = FaMetadataHeader::new()
+            .general_section(GeneralSection::new().file_name("builder-v1.tif"))
+            .method_specific(
+                MethodSpecific::new().optical_microscopy(OpticalMicroscopy::new().hdr_mode(true)),
+            )
+            .data_evaluation(DataEvaluation::new().push_point_of_interest(
+                PointOfInterest::from_f64_coordinates([10.0, 20.0], "px").with_name("POI-1"),
+            ));
+
+        let value = header.to_value().unwrap();
+        assert_eq!(
+            value["General Section"]["File Name"],
+            json!("builder-v1.tif")
+        );
+        assert_eq!(value["Data Evaluation"]["POI"][0]["Name"], json!("POI-1"));
     }
 }

@@ -27,3 +27,24 @@ pub struct ToolSpecific {
     #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
     pub extra: ExtraFields,
 }
+
+impl ToolSpecific {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn vendor_name(mut self, vendor_name: impl Into<String>) -> Self {
+        self.vendor_name = Some(vendor_name.into());
+        self
+    }
+
+    pub fn software_version(mut self, software_version: impl Into<String>) -> Self {
+        self.software_version = Some(software_version.into());
+        self
+    }
+
+    pub fn custom_parameters(mut self, custom_parameters: JsonMap) -> Self {
+        self.custom_parameters = Some(custom_parameters);
+        self
+    }
+}
