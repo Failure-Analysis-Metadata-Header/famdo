@@ -128,77 +128,6 @@ pub type IntegerWithUnit = UnitValue<i64>;
 pub type NumberArrayWithUnit = UnitValue<Vec<Option<Numeric>>>;
 pub type PointArrayWithUnit = UnitValue<Vec<Vec<Option<Numeric>>>>;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct MetadataDocument<T> {
-    #[serde(flatten)]
-    pub header: T,
-
-    #[serde(rename = "_meta", default, skip_serializing_if = "is_empty_map")]
-    pub metadata: ExtraFields,
-}
-
-impl<T> MetadataDocument<T> {
-    pub fn new(header: T) -> Self {
-        Self {
-            header,
-            metadata: ExtraFields::new(),
-        }
-    }
-
-    pub fn with_metadata(header: T, metadata: ExtraFields) -> Self {
-        Self { header, metadata }
-    }
-
-    pub fn header(mut self, header: T) -> Self {
-        self.header = header;
-        self
-    }
-
-    pub fn metadata(mut self, metadata: ExtraFields) -> Self {
-        self.metadata = metadata;
-        self
-    }
-
-    pub fn insert_metadata(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.metadata.insert(key.into(), value);
-        self
-    }
-}
-
-impl<T> MetadataDocument<T>
-where
-    T: DeserializeOwned,
-{
-    pub fn from_reader<R: Read>(reader: R) -> serde_json::Result<Self> {
-        crate::from_reader(reader)
-    }
-
-    pub fn from_str(json: &str) -> serde_json::Result<Self> {
-        crate::from_str(json)
-    }
-
-    pub fn from_value(value: Value) -> serde_json::Result<Self> {
-        crate::from_value(value)
-    }
-}
-
-impl<T> MetadataDocument<T>
-where
-    T: Serialize,
-{
-    pub fn to_writer_pretty<W: Write>(&self, writer: W) -> serde_json::Result<()> {
-        crate::to_writer_pretty(writer, self)
-    }
-
-    pub fn to_string_pretty(&self) -> serde_json::Result<String> {
-        crate::to_string_pretty(self)
-    }
-
-    pub fn to_value(&self) -> serde_json::Result<Value> {
-        crate::to_value(self)
-    }
-}
-
 pub fn from_reader<T, R>(reader: R) -> serde_json::Result<T>
 where
     T: DeserializeOwned,
@@ -246,34 +175,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn metadata_document_round_trips_with_reserved_meta_field() {
-        let input = json!({
-            "generalSection": {
-                "fileName": "sample.tif"
-            },
-            "methodSpecific": {},
-            "_meta": {
-                "source": "connector",
-                "runId": "abc-123"
-            }
-        });
-
-        let document: MetadataDocument<crate::v2::FaMetadataHeader> =
-            MetadataDocument::from_value(input.clone()).unwrap();
-
-        assert_eq!(document.metadata.get("source"), Some(&json!("connector")));
-        assert!(document.header.general_section.is_some());
-        assert_eq!(document.to_value().unwrap(), input);
-    }
-
-    #[test]
-    fn metadata_document_new_starts_without_extra_metadata() {
-        let document = MetadataDocument::new(crate::v2::FaMetadataHeader::default());
-        assert!(document.metadata.is_empty());
-    }
 
     #[test]
     fn test_numeric_from_primitive_values() {

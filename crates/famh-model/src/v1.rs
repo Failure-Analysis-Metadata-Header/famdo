@@ -33,7 +33,11 @@ pub struct FaMetadataHeader {
     #[serde(rename = "General Section", default)]
     pub general_section: GeneralSection,
 
-    #[serde(rename = "Method Specific", default)]
+    #[serde(
+        rename = "Method Specific",
+        default,
+        skip_serializing_if = "MethodSpecific::is_empty"
+    )]
     pub method_specific: MethodSpecific,
 
     #[serde(
@@ -165,6 +169,15 @@ mod tests {
     }
 
     #[test]
+    fn omits_empty_method_specific_section_during_serialization() {
+        let header = FaMetadataHeader::new();
+
+        let serialized = header.to_value().unwrap();
+
+        assert!(serialized.get("Method Specific").is_none());
+    }
+
+    #[test]
     fn parses_nested_v1_typed_fields() {
         let input = json!({
             "General Section": {
@@ -227,8 +240,9 @@ mod tests {
     }
 
     #[test]
-    fn parses_fib_corrected_tilt_angle_values_typo() {
+    fn round_trips_fib_corrected_tilt_angle_values_typo_without_typed_value() {
         let input = json!({
+            "General Section": {},
             "Method Specific": {
                 "Focused Ion Beam": {
                     "Corrected Tilt Angle": {
@@ -247,8 +261,15 @@ mod tests {
             .as_ref()
             .and_then(|f| f.corrected_tilt_angle.as_ref())
             .and_then(|a| a.value.as_ref());
+        let corrected_tilt_raw = model
+            .method_specific
+            .focused_ion_beam
+            .as_ref()
+            .and_then(|f| f.corrected_tilt_angle.as_ref())
+            .and_then(|a| a.extra.get("values"));
 
-        assert_eq!(corrected_tilt, Some(&Numeric::Float(1.5)));
+        assert_eq!(corrected_tilt, None);
+        assert_eq!(corrected_tilt_raw, Some(&json!(1.5)));
         assert_eq!(model.to_value().unwrap(), input);
     }
 

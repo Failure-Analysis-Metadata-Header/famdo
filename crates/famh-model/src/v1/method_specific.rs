@@ -35,6 +35,13 @@ impl MethodSpecific {
         Self::default()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.scanning_electron_microscopy.is_none()
+            && self.focused_ion_beam.is_none()
+            && self.optical_microscopy.is_none()
+            && self.extra.is_empty()
+    }
+
     pub fn scanning_electron_microscopy(
         mut self,
         scanning_electron_microscopy: ScanningElectronMicroscopy,
