@@ -86,9 +86,6 @@ pub struct PointOfInterest {
         skip_serializing_if = "Option::is_none"
     )]
     pub coordinates: Option<LegacyNumberArrayWithUnit>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl PointOfInterest {
@@ -176,9 +173,6 @@ pub struct RegionsOfInterest {
         skip_serializing_if = "Option::is_none"
     )]
     pub roi_rectangle: Option<Vec<RoiRectangle>>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl RegionsOfInterest {
@@ -260,9 +254,6 @@ pub struct RoiPolygon {
         skip_serializing_if = "Option::is_none"
     )]
     pub stroke_width: Option<LegacyNumberWithUnit>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl RoiPolygon {
@@ -342,9 +333,6 @@ pub struct RoiPolyline {
         skip_serializing_if = "Option::is_none"
     )]
     pub stroke_width: Option<LegacyNumberWithUnit>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl RoiPolyline {
@@ -433,9 +421,6 @@ pub struct RoiRectangle {
         skip_serializing_if = "Option::is_none"
     )]
     pub stroke_width: Option<LegacyNumberWithUnit>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl RoiRectangle {

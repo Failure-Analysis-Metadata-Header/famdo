@@ -86,9 +86,6 @@ pub struct PointOfInterest {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub coordinates: Option<NumberArrayWithUnit>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl PointOfInterest {
@@ -158,9 +155,6 @@ pub struct RegionsOfInterest {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub polylines: Option<Vec<PolylineRegion>>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl RegionsOfInterest {
@@ -222,9 +216,6 @@ pub struct PolygonRegion {
         skip_serializing_if = "Option::is_none"
     )]
     pub stroke_width: Option<NumberWithUnit>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl PolygonRegion {
@@ -300,9 +291,6 @@ pub struct PolylineRegion {
         skip_serializing_if = "Option::is_none"
     )]
     pub stroke_width: Option<NumberWithUnit>,
-
-    #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
-    pub extra: ExtraFields,
 }
 
 impl PolylineRegion {
