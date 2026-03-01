@@ -5,19 +5,18 @@ This guide is for quickly exploring the whole `famh-model` crate API.
 ## Run the full playground example
 
 ```bash
-cargo run -p famh-model --example famh_model_playground
+cargo run -p famh-model --example famh
 ```
 
 Source file:
 
-- `crates/famh-model/examples/famh_model_playground.rs`
+- `crates/famh-model/examples/famh.rs`
 
 The example demonstrates:
 
 - Parsing v1 and v2 headers from JSON.
 - Reading strongly typed nested values.
 - Round-trip serialization back to JSON.
-- Using `MetadataDocument<T>` with `_meta`.
 - Preserving unknown top-level fields via `extra`.
 
 ## Script-like workflows for experimentation
@@ -51,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash
 # Run one example
-cargo run -p famh-model --example famh_model_playground
+cargo run -p famh-model --example famh
 
 # Check only famh-model
 cargo test -p famh-model --locked
