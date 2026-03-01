@@ -1,11 +1,9 @@
-use famh_model::{MetadataDocument, from_str, to_string_pretty, to_value, v1, v2};
-use serde_json::json;
+use famh_model::{from_str, v1, v2};
 use std::str::FromStr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_v1_example()?;
     run_v2_example()?;
-    run_metadata_document_example()?;
     Ok(())
 }
 
@@ -75,30 +73,5 @@ fn run_v2_example() -> Result<(), Box<dyn std::error::Error>> {
         parsed.extra.get("unknownTopLevel")
     );
     println!("Round-trip JSON:\n{}\n", parsed.to_string_pretty()?);
-    Ok(())
-}
-
-fn run_metadata_document_example() -> Result<(), Box<dyn std::error::Error>> {
-    let payload = json!({
-        "generalSection": {
-            "fileName": "document.tif"
-        },
-        "methodSpecific": {},
-        "_meta": {
-            "source": "playground",
-            "runId": "local-001"
-        }
-    });
-
-    let doc: MetadataDocument<v2::FaMetadataHeader> = MetadataDocument::from_value(payload)?;
-    println!("== MetadataDocument ==");
-    println!("_meta.source: {:?}", doc.metadata.get("source"));
-    println!("Document as pretty JSON:\n{}\n", to_string_pretty(&doc)?);
-
-    let as_value = to_value(&doc)?;
-    println!(
-        "Round-trip equality check: {}",
-        as_value["_meta"]["runId"] == "local-001"
-    );
     Ok(())
 }

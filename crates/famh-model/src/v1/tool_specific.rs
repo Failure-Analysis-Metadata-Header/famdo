@@ -92,3 +92,69 @@ pub struct ToolSpecific {
     #[serde(flatten, default, skip_serializing_if = "is_empty_map")]
     pub extra: ExtraFields,
 }
+
+impl ToolSpecific {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn tescan_xeia3(mut self, tescan_xeia3: VendorSpecificSection) -> Self {
+        self.tescan_xeia3 = Some(tescan_xeia3);
+        self
+    }
+
+    pub fn zeiss_geminisem_500(mut self, zeiss_geminisem_500: VendorSpecificSection) -> Self {
+        self.zeiss_geminisem_500 = Some(zeiss_geminisem_500);
+        self
+    }
+
+    pub fn zeiss_leo_gemini_1550(mut self, zeiss_leo_gemini_1550: VendorSpecificSection) -> Self {
+        self.zeiss_leo_gemini_1550 = Some(zeiss_leo_gemini_1550);
+        self
+    }
+
+    pub fn zeiss_leo_gemini_1560(mut self, zeiss_leo_gemini_1560: VendorSpecificSection) -> Self {
+        self.zeiss_leo_gemini_1560 = Some(zeiss_leo_gemini_1560);
+        self
+    }
+
+    pub fn zeiss_gemini_ultra_55(mut self, zeiss_gemini_ultra_55: VendorSpecificSection) -> Self {
+        self.zeiss_gemini_ultra_55 = Some(zeiss_gemini_ultra_55);
+        self
+    }
+
+    pub fn zeiss_gemini_supra_55(mut self, zeiss_gemini_supra_55: VendorSpecificSection) -> Self {
+        self.zeiss_gemini_supra_55 = Some(zeiss_gemini_supra_55);
+        self
+    }
+
+    pub fn hitachi_su8000(mut self, hitachi_su8000: VendorSpecificSection) -> Self {
+        self.hitachi_su8000 = Some(hitachi_su8000);
+        self
+    }
+
+    pub fn hitachi_su8200(mut self, hitachi_su8200: VendorSpecificSection) -> Self {
+        self.hitachi_su8200 = Some(hitachi_su8200);
+        self
+    }
+
+    pub fn fei_magellan_400(mut self, fei_magellan_400: VendorSpecificSection) -> Self {
+        self.fei_magellan_400 = Some(fei_magellan_400);
+        self
+    }
+
+    pub fn olympus_dsx110(mut self, olympus_dsx110: VendorSpecificSection) -> Self {
+        self.olympus_dsx110 = Some(olympus_dsx110);
+        self
+    }
+
+    pub fn olympus_dsx500(mut self, olympus_dsx500: VendorSpecificSection) -> Self {
+        self.olympus_dsx500 = Some(olympus_dsx500);
+        self
+    }
+
+    pub fn olympus_dsx1000(mut self, olympus_dsx1000: VendorSpecificSection) -> Self {
+        self.olympus_dsx1000 = Some(olympus_dsx1000);
+        self
+    }
+}

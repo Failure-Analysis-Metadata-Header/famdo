@@ -1,5 +1,6 @@
 [workspace]
 members = [".", "crates/famh-model"]
+default-members = [".", "crates/famh-model"]
 resolver = "2"
 
 [package]
