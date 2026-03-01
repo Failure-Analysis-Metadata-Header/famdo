@@ -42,7 +42,7 @@ async fn main() {
             }
         },
         Commands::Edit(args) => {
-            match edit_famh_file(&args.path, args.field, args.value, &args.out) {
+            match edit_famh_file(&args.path, args.field, args.value, &args.out, args.version) {
                 Ok(()) => {
                     println!("Worked")
                 }

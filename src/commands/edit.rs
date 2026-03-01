@@ -1,4 +1,4 @@
-use famh_model::{Numeric, v1};
+use famh_model::{v1, v2};
 use serde_json::Value;
 use std::path::Path;
 
@@ -6,6 +6,8 @@ use std::{
     fs::File,
     io::{BufReader, BufWriter},
 };
+
+use crate::schema::SchemaVersion;
 
 /// Parse a field string and create a pointer from it
 /// Pointer should use RFC 6901 JSON Pointer navigation
@@ -28,14 +30,23 @@ pub fn edit_famh_file(
     field: String,
     value: String,
     out_path: impl AsRef<Path>,
+    version: SchemaVersion,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let file_path_ref = file_path.as_ref();
 
     let file = File::open(file_path_ref)?;
     let reader = BufReader::new(file);
 
-    let schema: v1::FaMetadataHeader = v1::FaMetadataHeader::from_reader(reader)?;
-    let mut schema_doc = schema.to_value()?;
+    let mut schema_doc = match version {
+        SchemaVersion::V1 => {
+            let schema: v1::FaMetadataHeader = v1::FaMetadataHeader::from_reader(reader)?;
+            schema.to_value()?
+        }
+        SchemaVersion::V2 => {
+            let schema: v2::FaMetadataHeader = v2::FaMetadataHeader::from_reader(reader)?;
+            schema.to_value()?
+        }
+    };
 
     let pointer = parse_field_str(&field);
 
@@ -45,12 +56,19 @@ pub fn edit_famh_file(
         return Err(format!("Field path not found: {pointer}").into());
     }
 
-    let updated_schema = v1::FaMetadataHeader::from_value(schema_doc)?;
-
     let out_path_ref = out_path.as_ref();
     let out_file = File::create(out_path_ref)?;
     let writer = BufWriter::new(out_file);
-    updated_schema.to_writer_pretty(writer)?;
+    match version {
+        SchemaVersion::V1 => {
+            let updated_schema = v1::FaMetadataHeader::from_value(schema_doc)?;
+            updated_schema.to_writer_pretty(writer)?;
+        }
+        SchemaVersion::V2 => {
+            let updated_schema = v2::FaMetadataHeader::from_value(schema_doc)?;
+            updated_schema.to_writer_pretty(writer)?;
+        }
+    }
 
     Ok(())
 }

@@ -5,6 +5,7 @@ Currently supported functionality:
 - validate JSON file against FAMH Schema v1 or v2
 - extract metadata from TIFF file and save as JSON
 - map extracted metadata to FAMH v2 format using connector configurations
+- edit a field in a FAMH v1 or v2 JSON document
 
 The repository also includes a reusable model crate:
 - `crates/famh-model`: typed Rust structs for FA metadata (`v1` and `v2`) with serde helpers.
@@ -66,6 +67,17 @@ famdo map image.tiff -c connectors/tiff_to_fam_v2_connector.json -o output.json
 # Validate the mapped output
 famdo validate output.json
 ```
+
+### Metadata Editing
+Update a single field in an existing FAMH JSON document:
+
+```bash
+famdo edit <path-to-json> <field> <value> [--version <v1|v2>] [--out <out-path>]
+```
+
+`<field>` supports dot notation (`generalSection.datasetName`) or JSON Pointer
+style (`/generalSection/datasetName`). `<value>` is parsed as JSON when possible
+(for example `42`, `true`, or `{"k":"v"}`), otherwise it is written as a string.
 
 ## Using the model crate
 
