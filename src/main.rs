@@ -1,6 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
 use famdo::cli::{Cli, Commands};
+use famdo::commands::edit::edit_famh_file;
 use famdo::commands::extract::extract_and_save_metadata;
 use famdo::commands::map::map_metadata;
 use famdo::commands::validate::validate_json;
@@ -40,5 +41,15 @@ async fn main() {
                 eprintln!("{}", format!("Error mapping metadata: {}", e).red());
             }
         },
+        Commands::Edit(args) => {
+            match edit_famh_file(&args.path, args.field, args.value, &args.out, args.version) {
+                Ok(()) => {
+                    println!("Worked")
+                }
+                Err(e) => {
+                    eprintln!("Didn't work")
+                }
+            }
+        }
     }
 }
