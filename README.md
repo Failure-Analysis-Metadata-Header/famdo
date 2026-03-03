@@ -1,8 +1,12 @@
 # famdo - FA Metadata Organizer
 
-`famdo` is a small CLI tool for managing the Failure Analysis (FA) Metadata Header format.
-Currently supported functionality:
-- validate JSON file against FAMH Schema v1 or v2
+`famdo` is a small CLI tool for managing the Failure AnalysisMetadata Header (FAMH) format.
+
+Note: `famdo` is still in early development. Bug are expected - please report them as issue!
+
+Currently, the primarily supported functionality is **FAMH schema validation**.
+
+Other functionality that is already partially implemented or in POC state:
 - extract metadata from TIFF file and save as JSON
 - map extracted metadata to FAMH v2 format using connector configurations
 - edit a field in a FAMH v1 or v2 JSON document
@@ -20,14 +24,6 @@ Grab the latest binary for your platform from the
 page and place it somewhere on your `PATH` (or keep it in your project folder).
 On Linux/macOS remember to make it executable:
 
-```bash
-chmod +x famdo
-```
-
-The first run of a new schema version requires internet access so that the CLI
-can download and cache the respective JSON schema fragments. Subsequent runs
-reuse the cached copy unless `--no-cache` is supplied.
-
 ## Usage
 
 ### Schema Validation
@@ -41,6 +37,10 @@ with the schema section name and exits with a non-zero status. With `--strict`,
 validation also fails when required top-level sections are missing or unknown
 top-level sections are present. Use `--no-cache` whenever you need to bypass the
 on-disk schema cache and force a fresh download.
+
+The first run of a new schema version requires internet access so that the CLI
+can download and cache the respective JSON schema fragments. Subsequent runs
+reuse the cached copy unless `--no-cache` is supplied.
 
 ### Metadata Extraction
 Utility function to extract metadata from a TIFF file:
