@@ -2,7 +2,7 @@ use crate::schema::{SchemaCache, SchemaVersion};
 use crate::utils::load_json;
 use colored::Colorize;
 use jsonschema;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::HashSet;
 
 pub async fn validate_json(
@@ -66,26 +66,46 @@ fn validate_json_content(
     }
 
     for (section_name, schema) in known_sections {
-        if let Some(section_data) = top_level.get(section_name) {
-            let section_schema = section_validation_schema(section_name, schema)?;
-            let validator = jsonschema::validator_for(section_schema)?;
-
-            match validator.validate(section_data) {
-                Ok(_) => {
-                    println!("{} {}", section_name, "section is valid.".green());
-                }
-                Err(error) => {
-                    println!("{} section - Validation error: {}", section_name, error);
-                    json_valid = false
-                }
-            }
+        let section_is_valid = validate_schema_section(top_level, schema, section_name)?;
+        if !section_is_valid {
+            json_valid = false;
         }
     }
 
     Ok(json_valid)
 }
 
-fn section_validation_schema<'a>(
+fn validate_schema_section(
+    top_level_schema: &Map<String, Value>,
+    schema: &Value,
+    section_name: &str,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let mut section_is_valid = true;
+    if let Some(section_data) = top_level_schema.get(section_name) {
+        let section_schema = get_section_validation_schema(section_name, schema)?;
+        let validator = jsonschema::validator_for(section_schema)?;
+        let errors: Vec<jsonschema::ValidationError<'_>> =
+            validator.iter_errors(section_data).collect();
+
+        if errors.is_empty() {
+            println!("{} {}", section_name, "section is valid".green());
+        } else {
+            section_is_valid = false;
+            println!(
+                "{} section - {} validation error(s):",
+                section_name,
+                errors.len()
+            );
+            for err in errors {
+                let full_error_path = format!("/{section_name}{}", err.instance_path.as_str());
+                println!("{}: {}", full_error_path.red(), err);
+            }
+        }
+    }
+    Ok(section_is_valid)
+}
+
+fn get_section_validation_schema<'a>(
     section_name: &str,
     schema: &'a Value,
 ) -> Result<&'a Value, Box<dyn std::error::Error>> {
@@ -199,6 +219,69 @@ mod tests {
         });
 
         let is_valid = validate_json_content(&input, &v2_test_cache(), false).unwrap();
+        assert!(!is_valid);
+    }
+
+    #[test]
+    fn validate_schema_section_accepts_valid_section() {
+        let input = json!({
+            "generalSection": {
+                "fileName": "sample.tif",
+                "method": "SEM"
+            }
+        });
+        let top_level = input.as_object().unwrap();
+        let schema = json!({
+            "properties": {
+                "generalSection": {
+                    "type": "object",
+                    "required": ["fileName", "method"],
+                    "properties": {
+                        "fileName": { "type": "string" },
+                        "method": { "type": "string" }
+                    }
+                }
+            }
+        });
+
+        let is_valid = validate_schema_section(top_level, &schema, "generalSection").unwrap();
+        assert!(is_valid);
+    }
+
+    #[test]
+    fn validate_schema_section_reports_multiple_failures() {
+        let input = json!({
+            "generalSection": {
+                "fileName": 123,
+                "method": 456
+            }
+        });
+        let top_level = input.as_object().unwrap();
+        let schema = json!({
+            "properties": {
+                "generalSection": {
+                    "type": "object",
+                    "required": ["fileName", "method"],
+                    "properties": {
+                        "fileName": { "type": "string" },
+                        "method": { "type": "string" }
+                    }
+                }
+            }
+        });
+
+        let section_data = top_level.get("generalSection").unwrap();
+        let section_schema = get_section_validation_schema("generalSection", &schema).unwrap();
+        let validator = jsonschema::validator_for(section_schema).unwrap();
+        let errors: Vec<_> = validator.iter_errors(section_data).collect();
+
+        assert!(
+            errors.len() >= 2,
+            "expected multiple errors, got {}",
+            errors.len()
+        );
+
+        let is_valid = validate_schema_section(top_level, &schema, "generalSection").unwrap();
         assert!(!is_valid);
     }
 }
