@@ -15,7 +15,7 @@ async fn main() {
             match validate_json(&args.path, args.version, args.no_cache, args.strict).await {
                 Ok(is_valid) => {
                     if is_valid {
-                        println!("FA Metadata Header is valid!");
+                        println!("{}", "FA Metadata Header is valid!".green());
                     } else {
                         println!("{}", "FA Metadata Header is invalid!".red());
                     }

@@ -1,4 +1,4 @@
-use crate::schema::{SchemaCache, SchemaVersion};
+use crate::schema::{self, SchemaCache, SchemaVersion};
 use crate::utils::load_json;
 use colored::Colorize;
 use jsonschema;
@@ -27,6 +27,7 @@ fn validate_json_content(
     };
 
     let mut json_valid: bool = true;
+
     let known_sections = schema_cache.all_sections();
     let allowed_section_names: HashSet<&str> = known_sections
         .iter()
@@ -42,7 +43,7 @@ fn validate_json_content(
 
     if !unknown_sections.is_empty() {
         println!(
-            "Unknown top-level sections: {}",
+            "Unknown root-level sections: {}",
             unknown_sections.join(", ").yellow()
         );
         if strict {
@@ -50,19 +51,8 @@ fn validate_json_content(
         }
     }
 
-    let mut missing_required: Vec<&str> = schema_cache
-        .required_sections()
-        .iter()
-        .copied()
-        .filter(|required| !top_level.contains_key(*required))
-        .collect();
-    missing_required.sort_unstable();
-
-    if !missing_required.is_empty() {
-        println!("Missing required sections: {}", missing_required.join(", "));
-        if strict {
-            json_valid = false;
-        }
+    if !verify_required_sections(schema_cache, top_level) {
+        json_valid = false;
     }
 
     for (section_name, schema) in known_sections {
@@ -73,6 +63,29 @@ fn validate_json_content(
     }
 
     Ok(json_valid)
+}
+/// Verify that all required root-level sections exist in the FA Header
+fn verify_required_sections(
+    schema_cache: &SchemaCache,
+    top_level_schema: &Map<String, Value>,
+) -> bool {
+    let mut all_required_sections_exist = true;
+    let mut missing_required: Vec<&str> = schema_cache
+        .required_sections()
+        .iter()
+        .copied()
+        .filter(|required| !top_level_schema.contains_key(*required))
+        .collect();
+    missing_required.sort_unstable();
+
+    if !missing_required.is_empty() {
+        println!(
+            "Missing required sections: {}",
+            missing_required.join(", ").bold()
+        );
+        all_required_sections_exist = false;
+    }
+    all_required_sections_exist
 }
 
 fn validate_schema_section(
