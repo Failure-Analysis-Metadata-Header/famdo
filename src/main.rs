@@ -35,10 +35,10 @@ async fn main() {
         },
         Commands::Map(args) => match map_metadata(&args.image, &args.connector, &args.out) {
             Ok(output) => {
-                println!("{}", serde_json::to_string_pretty(&output).unwrap());
+                println!("{}", "Map command is currently not implemented".yellow());
             }
             Err(e) => {
-                eprintln!("{}", format!("Error mapping metadata: {}", e).red());
+                eprintln!("{}", "Map command is currently not implemented".yellow());
             }
         },
         Commands::Edit(args) => {
