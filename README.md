@@ -8,7 +8,6 @@ Currently, the primarily supported functionality is **FAMH schema validation**.
 
 Other functionality that is already partially implemented or in POC state:
 - extract metadata from TIFF file and save as JSON
-- map extracted metadata to FAMH v2 format using connector configurations
 - edit a field in a FAMH v1 or v2 JSON document
 
 The repository also includes a reusable model crate:
@@ -47,25 +46,6 @@ Utility function to extract metadata from a TIFF file:
 
 ```bash
 famdo extract <path-to-tiff> [--out <out-path>]
-```
-
-### Metadata Mapping
-Map extracted TIFF metadata to FAMH v2 format using a connector configuration:
-
-```bash
-famdo map <path-to-tiff> --connector <path-to-connector-json>
-```
-
-The connector JSON defines how to transform raw TIFF metadata into valid FAMH v2
-structure. A default TIFF connector is included at `connectors/tiff_to_fam_v2_connector.json`.
-
-**Example:**
-```bash
-# Map TIFF metadata to FAMH v2 and save to file
-famdo map image.tiff -c connectors/tiff_to_fam_v2_connector.json -o output.json
-
-# Validate the mapped output
-famdo validate output.json
 ```
 
 ### Metadata Editing

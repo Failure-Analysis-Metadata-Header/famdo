@@ -15,7 +15,7 @@ async fn main() {
             match validate_json(&args.path, args.version, args.no_cache, args.strict).await {
                 Ok(is_valid) => {
                     if is_valid {
-                        println!("FA Metadata Header is valid!");
+                        println!("{}", "FA Metadata Header is valid!".green());
                     } else {
                         println!("{}", "FA Metadata Header is invalid!".red());
                     }
@@ -35,19 +35,19 @@ async fn main() {
         },
         Commands::Map(args) => match map_metadata(&args.image, &args.connector, &args.out) {
             Ok(output) => {
-                println!("{}", serde_json::to_string_pretty(&output).unwrap());
+                println!("{}", "Map command is currently not implemented".yellow());
             }
             Err(e) => {
-                eprintln!("{}", format!("Error mapping metadata: {}", e).red());
+                eprintln!("{}", "Map command is currently not implemented".yellow());
             }
         },
         Commands::Edit(args) => {
             match edit_famh_file(&args.path, args.field, args.value, &args.out, args.version) {
                 Ok(()) => {
-                    println!("Worked")
+                    println!("Edit successful")
                 }
                 Err(e) => {
-                    eprintln!("Didn't work")
+                    eprintln!("Edit failed: {}", e)
                 }
             }
         }
