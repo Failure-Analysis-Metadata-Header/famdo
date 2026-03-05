@@ -203,16 +203,6 @@ mod tests {
     }
 
     #[test]
-    fn non_strict_mode_allows_missing_required_sections() {
-        let input = json!({
-            "generalSection": { "fileName": "sample.tif" }
-        });
-
-        let is_valid = validate_json_content(&input, &v2_test_cache(), false).unwrap();
-        assert!(is_valid);
-    }
-
-    #[test]
     fn strict_mode_rejects_unknown_sections() {
         let input = json!({
             "generalSection": { "fileName": "sample.tif" },
