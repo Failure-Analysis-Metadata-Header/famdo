@@ -33,12 +33,6 @@ async fn main() {
                 println!("Could not extract metadata: {e}")
             }
         },
-        Commands::Map(_) => {
-            println!(
-                "{}",
-                "The map command is currently not implemented".yellow()
-            )
-        }
         Commands::Edit(args) => {
             match edit_famh_file(&args.path, args.field, args.value, &args.out, args.version) {
                 Ok(()) => {
@@ -50,9 +44,12 @@ async fn main() {
             }
         }
         Commands::Delete(args) => {
-            match delete_metadata_field(&args.path, args.field.clone(), args.version) {
+            match delete_metadata_field(&args.path, args.field.clone(), &args.out, args.version) {
                 Ok(_) => {
-                    println!("Successfully deleted field {}", &args.field);
+                    println!(
+                        "Successfully deleted field {} into {}",
+                        &args.field, &args.out
+                    );
                 }
                 Err(e) => {
                     eprintln!("Delete failed: {}", e)

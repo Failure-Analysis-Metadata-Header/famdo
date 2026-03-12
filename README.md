@@ -9,6 +9,7 @@ Currently, the primarily supported functionality is **FAMH schema validation**.
 Other functionality that is already partially implemented or in POC state:
 - extract metadata from TIFF file and save as JSON
 - edit a field in a FAMH v1 or v2 JSON document
+- delete a field from a FAMH v1 or v2 JSON document
 
 The repository also includes a reusable model crate:
 - `crates/famh-model`: typed Rust structs for FA metadata (`v1` and `v2`) with serde helpers.
@@ -58,6 +59,19 @@ famdo edit <path-to-json> <field> <value> [--version <v1|v2>] [--out <out-path>]
 `<field>` supports dot notation (`generalSection.datasetName`) or JSON Pointer
 style (`/generalSection/datasetName`). `<value>` is parsed as JSON when possible
 (for example `42`, `true`, or `{"k":"v"}`), otherwise it is written as a string.
+
+### Metadata Deletion
+Remove a single field from an existing FAMH JSON document:
+
+```bash
+famdo delete <path-to-json> <field> [--version <v1|v2>] [--out <out-path>]
+```
+
+`delete` uses the same field syntax as `edit`. Dot notation automatically
+escapes JSON Pointer special characters inside field names, while explicit JSON
+Pointer input must already use RFC 6901 escaping (for example `~1` for `/`).
+By default the updated document is written to `metadata_deleted.json`; use
+`--out <same-path>` if you explicitly want an in-place replacement.
 
 ## Using the model crate
 

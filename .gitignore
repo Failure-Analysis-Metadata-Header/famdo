@@ -24,6 +24,7 @@ target
 testdata
 extracted_metadata.json
 extracted_metadata_tmp.json
-mapped_output.json
+metadata_edited.json
+metadata_deleted.json
 .DS_Store
 scratch/
