@@ -11,13 +11,12 @@ use crate::schema::SchemaVersion;
 
 /// Parse a field string and create a pointer from it
 /// Pointer should use RFC 6901 JSON Pointer navigation
-fn parse_field_str(field: &str) -> String {
-    let field_pointer = if field.starts_with("/") {
+pub fn parse_field_str(field: &str) -> String {
+    if field.starts_with("/") {
         field.to_string()
     } else {
         format!("/{}", field.split(".").collect::<Vec<_>>().join("/"))
-    };
-    field_pointer
+    }
 }
 
 /// Parse the value from the user

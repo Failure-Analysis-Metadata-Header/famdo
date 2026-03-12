@@ -1,9 +1,9 @@
 use clap::Parser;
 use colored::Colorize;
 use famdo::cli::{Cli, Commands};
+use famdo::commands::delete::delete_metadata_field;
 use famdo::commands::edit::edit_famh_file;
 use famdo::commands::extract::extract_and_save_metadata;
-use famdo::commands::map::map_metadata;
 use famdo::commands::validate::validate_json;
 
 #[tokio::main]
@@ -33,14 +33,12 @@ async fn main() {
                 println!("Could not extract metadata: {e}")
             }
         },
-        Commands::Map(args) => match map_metadata(&args.image, &args.connector, &args.out) {
-            Ok(output) => {
-                println!("{}", "Map command is currently not implemented".yellow());
-            }
-            Err(e) => {
-                eprintln!("{}", "Map command is currently not implemented".yellow());
-            }
-        },
+        Commands::Map(_) => {
+            println!(
+                "{}",
+                "The map command is currently not implemented".yellow()
+            )
+        }
         Commands::Edit(args) => {
             match edit_famh_file(&args.path, args.field, args.value, &args.out, args.version) {
                 Ok(()) => {
@@ -48,6 +46,16 @@ async fn main() {
                 }
                 Err(e) => {
                     eprintln!("Edit failed: {}", e)
+                }
+            }
+        }
+        Commands::Delete(args) => {
+            match delete_metadata_field(&args.path, args.field.clone(), args.version) {
+                Ok(_) => {
+                    println!("Successfully deleted field {}", &args.field);
+                }
+                Err(e) => {
+                    eprintln!("Delete failed: {}", e)
                 }
             }
         }

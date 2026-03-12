@@ -145,18 +145,14 @@ mod tests {
 
     #[test]
     fn test_extract_metadata_structure() {
-        // This test would require a valid TIFF file
-        // For now, we just test that the function signature is correct
-        let result = extract_metadata("testdata/Fail_20X_Overlay_7.tiff");
-        if result.is_ok() {
-            let metadata = result.unwrap();
-            assert!(metadata.get("filename").is_some());
-            assert!(metadata.get("dimensions").is_some());
-            assert!(metadata.get("tags").is_some());
+        let metadata = extract_metadata("tests/fixtures/images/example_image.tif").unwrap();
 
-            let dims = &metadata["dimensions"];
-            assert!(dims.get("width").is_some());
-            assert!(dims.get("height").is_some());
-        }
+        assert!(metadata.get("filename").is_some());
+        assert!(metadata.get("dimensions").is_some());
+        assert!(metadata.get("tags").is_some());
+
+        let dims = &metadata["dimensions"];
+        assert_eq!(dims["width"], json!(640));
+        assert_eq!(dims["height"], json!(480));
     }
 }
