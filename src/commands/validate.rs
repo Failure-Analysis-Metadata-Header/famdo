@@ -1,4 +1,4 @@
-use crate::schema::{self, SchemaCache, SchemaVersion};
+use crate::schema::{SchemaCache, SchemaVersion};
 use crate::utils::load_json;
 use colored::Colorize;
 use jsonschema;
