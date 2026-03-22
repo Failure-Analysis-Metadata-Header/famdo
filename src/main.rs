@@ -30,7 +30,7 @@ async fn main() {
                 println!("Extracted image metadata and saved to {}", &args.out);
             }
             Err(e) => {
-                println!("Could not extract metadata: {e}")
+                eprintln!("Could not extract metadata: {e}")
             }
         },
         Commands::Map(args) => match map_metadata(&args.image, &args.connector, &args.out) {

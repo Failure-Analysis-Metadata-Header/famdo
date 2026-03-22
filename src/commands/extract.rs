@@ -9,9 +9,8 @@ pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::E
     let file = File::open(image_path)?;
     let mut decoder = Decoder::new(BufReader::new(file))?;
     let (width, height) = decoder.dimensions()?;
-    println!("Dimensions: {} x {}", width, height);
 
-    let tiff_tags = extract_tiff_metadata_tags(&mut decoder)?;
+    let (tiff_tags, tag_errors) = extract_tiff_metadata_tags(&mut decoder)?;
 
     let metadata = json!({
         "filename": image_path,
@@ -20,6 +19,7 @@ pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::E
             "height": height,
         },
         "tags": tiff_tags,
+        "tag_errors": tag_errors,
     });
     Ok(metadata)
 }
@@ -27,17 +27,18 @@ pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::E
 pub fn extract_and_save_metadata(
     image_path: &str,
     out_path: &str,
-) -> Result<bool, Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let metadata = extract_metadata(image_path)?;
     let outfile = File::create(out_path)?;
     serde_json::to_writer_pretty(outfile, &metadata)?;
-    Ok(true)
+    Ok(())
 }
 
 pub fn extract_tiff_metadata_tags<R: std::io::Read + std::io::Seek>(
     decoder: &mut Decoder<R>,
-) -> Result<Value, Box<dyn std::error::Error>> {
+) -> Result<(Value, usize), Box<dyn std::error::Error>> {
     let mut tags = Vec::new();
+    let mut tag_error_count: usize = 0;
     for tag_result in decoder.tag_iter() {
         match tag_result {
             Ok((tag, ifd_value)) => {
@@ -48,13 +49,12 @@ pub fn extract_tiff_metadata_tags<R: std::io::Read + std::io::Seek>(
                     "type": value_type,
                 }));
             }
-            Err(err) => {
-                eprintln!("Error reading tag: {}", err);
+            Err(_err) => {
+                tag_error_count += 1;
             }
         }
     }
-    println!("Extracted {} tags", tags.len());
-    Ok(json!(tags))
+    Ok((json!(tags), tag_error_count))
 }
 
 /// Extract the value and type from an ifd::Value.
@@ -63,7 +63,10 @@ fn extract_value(ifd_value: &ifd::Value) -> (Value, &'static str) {
         ifd::Value::Byte(val) => (json!(val), "Byte"),
         ifd::Value::Ascii(s) => (json!(s), "ASCII"),
         ifd::Value::Short(val) => (json!(val), "Short"),
-        ifd::Value::Rational(val_1, val_2) => (json!(format!("{}/{}", val_1, val_2)), "Rational"),
+        ifd::Value::Rational(val_1, val_2) => (
+            json!({ "numerator": val_1, "denominator": val_2 }),
+            "Rational",
+        ),
         ifd::Value::SignedByte(val) => (json!(val), "SignedByte"),
         ifd::Value::SignedShort(val) => (json!(val), "SignedShort"),
         ifd::Value::Float(val) => (json!(val), "Float"),
@@ -73,10 +76,7 @@ fn extract_value(ifd_value: &ifd::Value) -> (Value, &'static str) {
             "List",
         ),
         ifd::Value::Unsigned(val) => (json!(val), "Unsigned"),
-        _ => {
-            println!("Not covered: {:?}", ifd_value);
-            (json!({}), "Unknown")
-        }
+        _ => (json!({}), "Unknown"),
     }
 }
 
@@ -112,7 +112,7 @@ mod tests {
     fn test_extract_value_rational() {
         let value = ifd::Value::Rational(96000, 1000);
         let (json_val, type_str) = extract_value(&value);
-        assert_eq!(json_val, json!("96000/1000"));
+        assert_eq!(json_val, json!({ "numerator": 96000u32, "denominator": 1000u32 }));
         assert_eq!(type_str, "Rational");
     }
 
@@ -153,6 +153,7 @@ mod tests {
             assert!(metadata.get("filename").is_some());
             assert!(metadata.get("dimensions").is_some());
             assert!(metadata.get("tags").is_some());
+            assert!(metadata.get("tag_errors").is_some());
 
             let dims = &metadata["dimensions"];
             assert!(dims.get("width").is_some());
