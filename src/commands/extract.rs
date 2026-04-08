@@ -155,9 +155,12 @@ mod tests {
             assert!(metadata.get("tags").is_some());
             assert!(metadata.get("tag_errors").is_some());
 
-            let dims = &metadata["dimensions"];
-            assert!(dims.get("width").is_some());
-            assert!(dims.get("height").is_some());
-        }
+        assert!(metadata.get("filename").is_some());
+        assert!(metadata.get("dimensions").is_some());
+        assert!(metadata.get("tags").is_some());
+
+        let dims = &metadata["dimensions"];
+        assert_eq!(dims["width"], json!(640));
+        assert_eq!(dims["height"], json!(480));
     }
 }

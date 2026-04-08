@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
-use std::str::FromStr;
 
 pub mod v1;
 pub mod v2;

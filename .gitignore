@@ -23,6 +23,8 @@ target
 #
 testdata
 extracted_metadata.json
-mapped_output.json
+extracted_metadata_tmp.json
+metadata_edited.json
+metadata_deleted.json
 .DS_Store
 scratch/

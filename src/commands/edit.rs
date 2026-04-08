@@ -8,17 +8,7 @@ use std::{
 };
 
 use crate::schema::SchemaVersion;
-
-/// Parse a field string and create a pointer from it
-/// Pointer should use RFC 6901 JSON Pointer navigation
-fn parse_field_str(field: &str) -> String {
-    let field_pointer = if field.starts_with("/") {
-        field.to_string()
-    } else {
-        format!("/{}", field.split(".").collect::<Vec<_>>().join("/"))
-    };
-    field_pointer
-}
+use crate::utils::field_to_json_pointer;
 
 /// Parse the value from the user
 fn parse_value_str(value: &str) -> Value {
@@ -48,7 +38,7 @@ pub fn edit_famh_file(
         }
     };
 
-    let pointer = parse_field_str(&field);
+    let pointer = field_to_json_pointer(&field);
 
     if let Some(slot) = schema_doc.pointer_mut(&pointer) {
         *slot = parse_value_str(&value)
