@@ -5,9 +5,8 @@
 
 - `src/main.rs`: CLI entrypoint and command dispatch.
 - `src/cli.rs`: `clap` argument and subcommand definitions.
-- `src/commands/`: feature commands (`validate.rs`, `extract.rs`, `map.rs`).
+- `src/commands/`: feature commands (`validate.rs`, `extract.rs`, `edit.rs`, `delete.rs`).
 - `src/schema.rs` and `src/utils.rs`: schema download/cache logic and shared helpers.
-- `connectors/`: mapping connector JSON files (for example, `connectors/tiff_to_fam_v2_connector.json`).
 - `testdata/`: local schema fixtures and sample TIFF data used by tests.
 
 Keep new command logic in `src/commands/` and expose shared code through `src/lib.rs`.
@@ -17,7 +16,8 @@ Keep new command logic in `src/commands/` and expose shared code through `src/li
 - `cargo test --locked`: run unit tests across all modules.
 - `cargo run -- validate <file.json> --version v2 --strict`: validate FAMH JSON.
 - `cargo run -- extract <image.tif> -o extracted_metadata.json`: extract TIFF metadata.
-- `cargo run -- map <image.tif> -c connectors/tiff_to_fam_v2_connector.json -o mapped_output.json`: map TIFF metadata to FAMH v2.
+- `cargo run -- edit <file.json> generalSection.fileName renamed.tif --version v2 -o metadata_edited.json`: edit a FAMH field.
+- `cargo run -- delete <file.json> generalSection.fileName --version v2 -o metadata_deleted.json`: remove a FAMH field.
 - `cargo fmt --all`: format code before committing.
 
 ## Coding Style & Naming Conventions
@@ -31,13 +31,13 @@ Follow standard Rust style (`rustfmt` defaults, 4-space indentation, trailing co
 ## Testing Guidelines
 Tests are module-local unit tests (`#[cfg(test)] mod tests`) in the same file as implementation.
 
-- Name tests as `test_*` and keep them behavior-focused (see `src/commands/map.rs`).
+- Name tests as `test_*` and keep them behavior-focused (see `src/commands/delete.rs`).
 - Reuse `testdata/` fixtures for schema and TIFF-related behavior.
 - Run `cargo test --locked` before opening a PR.
 - Add/adjust tests for every functional change in command output or schema handling.
 
 ## Commit & Pull Request Guidelines
-Recent history favors short, imperative commit subjects (`fix schema validation for v1 and v2`) and occasional scoped prefixes (`3-map-command: ...`).
+Recent history favors short, imperative commit subjects (`fix schema validation for v1 and v2`) and occasional scoped prefixes (`3-delete-command: ...`).
 
 - Keep commit messages concise and action-oriented.
 - In PRs, include: problem statement, implementation summary, and test evidence (`cargo test --locked` output).
