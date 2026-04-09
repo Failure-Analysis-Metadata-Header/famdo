@@ -1,11 +1,15 @@
 use serde_json::{Value, json};
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 use tiff::decoder::Decoder;
 use tiff::decoder::ifd;
 
+use crate::utils::write_bytes_atomically;
+
 /// Extract metadata from a TIFF file and save it to a JSON file.
-pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::Error>> {
+pub fn extract_metadata(image_path: impl AsRef<Path>) -> Result<Value, Box<dyn std::error::Error>> {
+    let image_path = image_path.as_ref();
     let file = File::open(image_path)?;
     let mut decoder = Decoder::new(BufReader::new(file))?;
     let (width, height) = decoder.dimensions()?;
@@ -13,7 +17,7 @@ pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::E
     let (tiff_tags, tag_errors) = extract_tiff_metadata_tags(&mut decoder)?;
 
     let metadata = json!({
-        "filename": image_path,
+        "filename": image_path.display().to_string(),
         "dimensions": {
             "width": width,
             "height": height,
@@ -25,12 +29,12 @@ pub fn extract_metadata(image_path: &str) -> Result<Value, Box<dyn std::error::E
 }
 
 pub fn extract_and_save_metadata(
-    image_path: &str,
-    out_path: &str,
+    image_path: impl AsRef<Path>,
+    out_path: impl AsRef<Path>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let metadata = extract_metadata(image_path)?;
-    let outfile = File::create(out_path)?;
-    serde_json::to_writer_pretty(outfile, &metadata)?;
+    let bytes = serde_json::to_vec_pretty(&metadata)?;
+    write_bytes_atomically(out_path, &bytes)?;
     Ok(())
 }
 
@@ -63,19 +67,34 @@ fn extract_value(ifd_value: &ifd::Value) -> (Value, &'static str) {
         ifd::Value::Byte(val) => (json!(val), "Byte"),
         ifd::Value::Ascii(s) => (json!(s), "ASCII"),
         ifd::Value::Short(val) => (json!(val), "Short"),
-        ifd::Value::Rational(val_1, val_2) => (
-            json!({ "numerator": val_1, "denominator": val_2 }),
-            "Rational",
-        ),
         ifd::Value::SignedByte(val) => (json!(val), "SignedByte"),
         ifd::Value::SignedShort(val) => (json!(val), "SignedShort"),
+        ifd::Value::Signed(val) => (json!(val), "Signed"),
+        ifd::Value::Unsigned(val) => (json!(val), "Unsigned"),
+        ifd::Value::SignedBig(val) => (json!(val), "SignedBig"),
+        ifd::Value::UnsignedBig(val) => (json!(val), "UnsignedBig"),
         ifd::Value::Float(val) => (json!(val), "Float"),
         ifd::Value::Double(val) => (json!(val), "Double"),
+        ifd::Value::Rational(num, den) => {
+            (json!({ "numerator": num, "denominator": den }), "Rational")
+        }
+        ifd::Value::RationalBig(num, den) => (
+            json!({ "numerator": num, "denominator": den }),
+            "RationalBig",
+        ),
+        ifd::Value::SRational(num, den) => {
+            (json!({ "numerator": num, "denominator": den }), "SRational")
+        }
+        ifd::Value::SRationalBig(num, den) => (
+            json!({ "numerator": num, "denominator": den }),
+            "SRationalBig",
+        ),
+        ifd::Value::Ifd(offset) => (json!(offset), "Ifd"),
+        ifd::Value::IfdBig(offset) => (json!(offset), "IfdBig"),
         ifd::Value::List(vals) => (
             json!(vals.iter().map(|v| extract_value(v).0).collect::<Vec<_>>()),
             "List",
         ),
-        ifd::Value::Unsigned(val) => (json!(val), "Unsigned"),
         _ => (json!({}), "Unknown"),
     }
 }
@@ -112,7 +131,10 @@ mod tests {
     fn test_extract_value_rational() {
         let value = ifd::Value::Rational(96000, 1000);
         let (json_val, type_str) = extract_value(&value);
-        assert_eq!(json_val, json!({ "numerator": 96000u32, "denominator": 1000u32 }));
+        assert_eq!(
+            json_val,
+            json!({ "numerator": 96000u32, "denominator": 1000u32 })
+        );
         assert_eq!(type_str, "Rational");
     }
 
@@ -122,6 +144,60 @@ mod tests {
         let (json_val, type_str) = extract_value(&value);
         assert_eq!(json_val, json!(640));
         assert_eq!(type_str, "Unsigned");
+    }
+
+    #[test]
+    fn test_extract_value_signed() {
+        let value = ifd::Value::Signed(-42);
+        let (json_val, type_str) = extract_value(&value);
+        assert_eq!(json_val, json!(-42));
+        assert_eq!(type_str, "Signed");
+    }
+
+    #[test]
+    fn test_extract_value_signed_big() {
+        let value = ifd::Value::SignedBig(-100_000);
+        let (json_val, type_str) = extract_value(&value);
+        assert_eq!(json_val, json!(-100_000i64));
+        assert_eq!(type_str, "SignedBig");
+    }
+
+    #[test]
+    fn test_extract_value_unsigned_big() {
+        let value = ifd::Value::UnsignedBig(100_000);
+        let (json_val, type_str) = extract_value(&value);
+        assert_eq!(json_val, json!(100_000u64));
+        assert_eq!(type_str, "UnsignedBig");
+    }
+
+    #[test]
+    fn test_extract_value_srational() {
+        let value = ifd::Value::SRational(-96000, 1000);
+        let (json_val, type_str) = extract_value(&value);
+        assert_eq!(
+            json_val,
+            json!({ "numerator": -96000i32, "denominator": 1000i32 })
+        );
+        assert_eq!(type_str, "SRational");
+    }
+
+    #[test]
+    fn test_extract_value_rational_big() {
+        let value = ifd::Value::RationalBig(96000, 1000);
+        let (json_val, type_str) = extract_value(&value);
+        assert_eq!(
+            json_val,
+            json!({ "numerator": 96000u64, "denominator": 1000u64 })
+        );
+        assert_eq!(type_str, "RationalBig");
+    }
+
+    #[test]
+    fn test_extract_value_ifd() {
+        let value = ifd::Value::Ifd(42);
+        let (json_val, type_str) = extract_value(&value);
+        assert_eq!(json_val, json!(42));
+        assert_eq!(type_str, "Ifd");
     }
 
     #[test]
@@ -145,22 +221,16 @@ mod tests {
 
     #[test]
     fn test_extract_metadata_structure() {
-        // This test would require a valid TIFF file
-        // For now, we just test that the function signature is correct
-        let result = extract_metadata("testdata/Fail_20X_Overlay_7.tiff");
-        if result.is_ok() {
-            let metadata = result.unwrap();
+        let result = extract_metadata("testdata/example_image.tif");
+        if let Ok(metadata) = result {
             assert!(metadata.get("filename").is_some());
             assert!(metadata.get("dimensions").is_some());
             assert!(metadata.get("tags").is_some());
             assert!(metadata.get("tag_errors").is_some());
 
-        assert!(metadata.get("filename").is_some());
-        assert!(metadata.get("dimensions").is_some());
-        assert!(metadata.get("tags").is_some());
-
-        let dims = &metadata["dimensions"];
-        assert_eq!(dims["width"], json!(640));
-        assert_eq!(dims["height"], json!(480));
+            let dims = &metadata["dimensions"];
+            assert_eq!(dims["width"], json!(640));
+            assert_eq!(dims["height"], json!(480));
+        }
     }
 }

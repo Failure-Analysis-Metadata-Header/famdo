@@ -27,7 +27,10 @@ async fn main() {
         }
         Commands::Extract(args) => match extract_and_save_metadata(&args.path, &args.out) {
             Ok(_) => {
-                println!("Extracted image metadata and saved to {}", &args.out);
+                println!(
+                    "{}",
+                    format!("Extracted image metadata and saved to {}", &args.out).green()
+                );
             }
             Err(e) => {
                 eprintln!("Could not extract metadata: {e}")
