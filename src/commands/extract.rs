@@ -43,6 +43,7 @@ pub fn extract_tiff_metadata_tags<R: std::io::Read + std::io::Seek>(
             Ok((tag, ifd_value)) => {
                 let (value, value_type) = extract_value(&ifd_value);
                 tags.push(json!({
+                    "id": tag.to_u16(),
                     "tag": format!("{tag:?}"),
                     "value": value,
                     "type": value_type,
@@ -154,5 +155,10 @@ mod tests {
         let dims = &metadata["dimensions"];
         assert_eq!(dims["width"], json!(640));
         assert_eq!(dims["height"], json!(480));
+
+        let tags = metadata["tags"].as_array().unwrap();
+        assert!(!tags.is_empty());
+        assert!(tags.iter().all(|tag| tag["id"].is_u64()));
+        assert!(tags.iter().all(|tag| tag.get("tag").is_some()));
     }
 }

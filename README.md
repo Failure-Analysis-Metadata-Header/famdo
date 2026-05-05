@@ -49,6 +49,10 @@ Utility function to extract metadata from a TIFF file:
 famdo extract <path-to-tiff> [--out <out-path>]
 ```
 
+The extracted JSON reports each TIFF tag with its numeric TIFF `id`, human-readable
+`tag` name, raw `value`, and TIFF value `type`. The numeric `id` is the stable
+cross-tool identifier and should be preferred when building connector mappings.
+
 ### Metadata Editing
 Update a single field in an existing FAMH JSON document:
 
