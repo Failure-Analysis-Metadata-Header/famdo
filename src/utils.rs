@@ -7,7 +7,24 @@ use tempfile::Builder;
 
 pub fn load_json(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let json_text = std::fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&json_text)?)
+    serde_json::from_str(&json_text).map_err(|error| {
+        let location = if error.line() > 0 {
+            format!(" at line {} column {}", error.line(), error.column())
+        } else {
+            String::new()
+        };
+        let hint = if json_text.contains("NaN") || json_text.contains("Infinity") {
+            " `NaN` and `Infinity` are not valid JSON numbers; use `null` or a finite number instead."
+        } else {
+            ""
+        };
+
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Invalid JSON in '{path}'{location}: {error}.{hint}"),
+        )
+        .into()
+    })
 }
 
 fn encode_pointer_token(token: &str) -> String {
@@ -97,6 +114,20 @@ mod tests {
 
         let result = load_json(temp_file.path().to_str().unwrap());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_json_reports_non_json_number() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(br#"{"value": NaN}"#).unwrap();
+        temp_file.flush().unwrap();
+
+        let error = load_json(temp_file.path().to_str().unwrap())
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("line 1 column 11"));
+        assert!(error.contains("NaN` and `Infinity` are not valid JSON numbers"));
     }
 
     #[test]
