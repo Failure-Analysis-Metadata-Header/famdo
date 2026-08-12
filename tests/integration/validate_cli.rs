@@ -77,3 +77,21 @@ fn fail_on_warning_controls_warning_only_reports() {
     let warning_output = run_validate(&[path, "--version", "v2", "--fail-on", "warning"]);
     assert_eq!(warning_output.status.code(), Some(1));
 }
+
+#[test]
+fn cache_inspect_reports_missing_metadata() {
+    let output = Command::new(env!("CARGO_BIN_EXE_famdo"))
+        .args([
+            "cache",
+            "inspect",
+            "--version",
+            "v2",
+            "--revision",
+            "phase5-test-cache-does-not-exist",
+        ])
+        .output()
+        .expect("famdo binary should run");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("No schema cache metadata"));
+}

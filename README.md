@@ -52,6 +52,21 @@ The first run of a new schema version requires internet access so that the CLI
 can download and cache the respective JSON schema fragments. Subsequent runs
 reuse the cached copy unless `--no-cache` is supplied.
 
+Schema sources default to the `master` revision. Pin a branch, tag, or commit
+with `--revision <revision>` when validating or refreshing a cache. Cache
+metadata records the requested family, source URL, revision, retrieval time,
+and SHA-256 for every cached schema file:
+
+```bash
+famdo cache inspect [--version <v1|v2|v2-draft>] [--revision <revision>]
+famdo cache refresh [--version <v1|v2|v2-draft>] [--revision <revision>]
+```
+
+`cache refresh` forces a download. `cache inspect` displays the metadata for a
+matching source, and reports a missing cache with exit status `2`. If a cache
+cannot be written during validation, famdo continues the validation and emits a
+`WARNING` finding describing the cache problem.
+
 ### Metadata Extraction
 Utility function to extract metadata from a TIFF file:
 
