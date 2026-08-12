@@ -1,3 +1,4 @@
+use crate::cli::FailOn;
 use crate::schema::{SchemaCache, SchemaVersion, SectionDefinition};
 use crate::utils::load_json;
 use serde_json::{Map, Value};
@@ -59,7 +60,53 @@ impl ValidationReport {
         )
     }
 
+    pub fn fails_on(&self, fail_on: FailOn) -> bool {
+        self.has_errors()
+            || (fail_on == FailOn::Warning
+                && self
+                    .findings
+                    .iter()
+                    .any(|finding| finding.severity == FindingSeverity::Warning))
+    }
+
+    pub fn json_value(&self) -> Value {
+        let (errors, warnings, infos) = self.counts();
+        serde_json::json!({
+            "tool_version": env!("CARGO_PKG_VERSION"),
+            "schema": {
+                "family": self.schema_version,
+                "source": self.schema_source,
+            },
+            "result": if self.has_errors() { "invalid" } else { "valid" },
+            "counts": {
+                "error": errors,
+                "warning": warnings,
+                "info": infos,
+            },
+            "sections": self.sections.iter().map(|section| serde_json::json!({
+                "name": section.name,
+                "present": section.present,
+                "valid": section.valid,
+            })).collect::<Vec<_>>(),
+            "findings": self.findings.iter().map(|finding| serde_json::json!({
+                "severity": finding.severity.label().to_ascii_lowercase(),
+                "path": finding.path,
+                "message": finding.message,
+                "suggestion": finding.suggestion,
+                "rule": finding.rule,
+            })).collect::<Vec<_>>(),
+        })
+    }
+
+    pub fn render_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(&self.json_value())
+    }
+
     pub fn render_text(&self) -> String {
+        self.render_text_with_color(false)
+    }
+
+    pub fn render_text_with_color(&self, color: bool) -> String {
         let mut output = format!(
             "Schema: {} (source: {})\n",
             self.schema_version, self.schema_source
@@ -70,7 +117,7 @@ impl ValidationReport {
             for finding in &self.findings {
                 output.push_str(&format!(
                     "{} {}\n        {}\n",
-                    finding.severity.label(),
+                    colorize_severity(finding.severity, color),
                     finding.path,
                     finding.message
                 ));
@@ -105,8 +152,8 @@ pub async fn validate_json_report(
     no_cache: bool,
     strict: bool,
 ) -> Result<ValidationReport, Box<dyn std::error::Error>> {
-    let schema_cache = SchemaCache::download_all(version, !no_cache).await?;
     let json_file = load_json(json_file_path)?;
+    let schema_cache = SchemaCache::download_all(version, !no_cache).await?;
     Ok(validate_json_content(&json_file, &schema_cache, strict))
 }
 
@@ -267,6 +314,20 @@ fn section_path(section_name: &str) -> String {
     format!("/{}", escape_json_pointer_token(section_name))
 }
 
+fn colorize_severity(severity: FindingSeverity, color: bool) -> String {
+    let label = severity.label();
+    if !color {
+        return label.to_owned();
+    }
+
+    let code = match severity {
+        FindingSeverity::Error => 31,
+        FindingSeverity::Warning => 33,
+        FindingSeverity::Info => 36,
+    };
+    format!("\x1b[{code}m{label}\x1b[0m")
+}
+
 fn escape_json_pointer_token(token: &str) -> String {
     token.replace('~', "~0").replace('/', "~1")
 }
@@ -371,5 +432,35 @@ mod tests {
 
         assert!(rendered.contains("Schema: v2-draft"));
         assert!(rendered.contains("Result: invalid"));
+    }
+
+    #[test]
+    fn renders_stable_json_report() {
+        let input = json!({});
+        let report = validate_json_content(&input, &v2_test_cache(), false);
+        let rendered = report
+            .render_json()
+            .expect("report should be JSON serializable");
+        let json: Value = serde_json::from_str(&rendered).expect("report should be valid JSON");
+
+        assert_eq!(json["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(json["schema"]["family"], "v2-draft");
+        assert_eq!(json["result"], "invalid");
+        assert_eq!(json["counts"]["error"], 2);
+        assert!(json["findings"].is_array());
+        assert!(json["sections"].is_array());
+    }
+
+    #[test]
+    fn fail_on_warning_also_fails_on_errors() {
+        let input = json!({
+            "generalSection": {"fileName": "sample.tif"},
+            "methodSpecific": {},
+            "Unexpected": {}
+        });
+        let report = validate_json_content(&input, &v2_test_cache(), false);
+
+        assert!(!report.fails_on(FailOn::Error));
+        assert!(report.fails_on(FailOn::Warning));
     }
 }

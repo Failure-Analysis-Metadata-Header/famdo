@@ -30,6 +30,7 @@ On Linux/macOS remember to make it executable:
 
 ```bash
 famdo validate <path-to-json> [--version <v1|v2|v2-draft>] [--no-cache] [--strict]
+					 [--format <text|json>] [--fail-on <error|warning>]
 ```
 
 The command reports the selected schema family, every schema error, missing
@@ -39,6 +40,13 @@ is available as the `v2` compatibility name or the explicit `v2-draft` alias.
 With `--strict`, unexpected root-level sections are errors instead of warnings.
 Use `--no-cache` whenever you need to bypass the on-disk schema cache and force a
 fresh download.
+
+Validation exits with status `0` when no configured findings fail the threshold,
+`1` when metadata has validation errors (or warnings with `--fail-on warning`),
+and `2` when an operational failure prevents validation, such as a missing input,
+invalid JSON, or unavailable schemas. `--format text` is the default. The JSON
+format is a stable report containing the tool version, schema family and source,
+overall schema result, severity counts, section summaries, and all findings.
 
 The first run of a new schema version requires internet access so that the CLI
 can download and cache the respective JSON schema fragments. Subsequent runs

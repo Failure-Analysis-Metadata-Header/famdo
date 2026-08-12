@@ -1,10 +1,10 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::schema::SchemaVersion;
 
 #[derive(Parser)]
 #[command(name = "famdo")]
-#[command(version = "0.1.0")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "FAMDO CLI tool", long_about=None)]
 pub struct Cli {
     #[command(subcommand)]
@@ -31,6 +31,26 @@ pub struct ValidateArgs {
 
     #[arg(long, default_value_t = false)]
     pub strict: bool,
+
+    #[arg(long = "format", value_enum, default_value_t = OutputFormat::Text)]
+    pub format: OutputFormat,
+
+    #[arg(long, value_enum, default_value_t = FailOn::Error)]
+    pub fail_on: FailOn,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum FailOn {
+    #[default]
+    Error,
+    Warning,
 }
 
 #[derive(Args, Clone)]
