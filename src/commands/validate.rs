@@ -450,6 +450,34 @@ mod tests {
     }
 
     #[test]
+    fn reports_non_object_input_as_a_structural_error() {
+        let report = validate_json_content(&json!(null), &v2_test_cache(), false);
+
+        assert!(report.has_errors());
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "top-level-object"
+                && finding.severity == FindingSeverity::Error
+                && finding.path == "/"
+        }));
+    }
+
+    #[test]
+    fn strict_mode_promotes_unknown_root_sections_to_errors() {
+        let input = json!({
+            "generalSection": {"fileName": "sample.tif"},
+            "methodSpecific": {},
+            "Method Section": {}
+        });
+        let report = validate_json_content(&input, &v2_test_cache(), true);
+
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "unknown-root-section"
+                && finding.severity == FindingSeverity::Error
+                && finding.suggestion.as_deref() == Some("methodSpecific")
+        }));
+    }
+
+    #[test]
     fn renders_schema_and_summary() {
         let input = json!({});
         let report = validate_json_content(&input, &v2_test_cache(), false);

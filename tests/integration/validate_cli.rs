@@ -52,6 +52,32 @@ fn missing_input_returns_operational_failure() {
 }
 
 #[test]
+fn invalid_json_returns_operational_failure() {
+    let output = run_validate(&["tests/fixtures/invalid_json_nan.json", "--version", "v2"]);
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("NaN"));
+}
+
+#[test]
+fn strict_unknown_root_section_returns_validation_failure() {
+    let default_output = run_validate(&[
+        "tests/fixtures/v2/unknown_root_section.json",
+        "--version",
+        "v2",
+    ]);
+    assert_eq!(default_output.status.code(), Some(0));
+
+    let strict_output = run_validate(&[
+        "tests/fixtures/v2/unknown_root_section.json",
+        "--version",
+        "v2",
+        "--strict",
+    ]);
+    assert_eq!(strict_output.status.code(), Some(1));
+}
+
+#[test]
 fn fail_on_warning_controls_warning_only_reports() {
     let mut document: Value = serde_json::from_str(
         &std::fs::read_to_string("tests/fixtures/v2/minimal_example_optical.json")
