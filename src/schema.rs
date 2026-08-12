@@ -10,11 +10,22 @@ const SCHEMA_BASE_URL: &str = "https://raw.githubusercontent.com/Failure-Analysi
 pub enum SchemaVersion {
     #[value(name = "v1")]
     V1,
-    #[value(name = "v2")]
+    #[value(name = "v2", alias = "v2-draft")]
     V2,
 }
 
 impl SchemaVersion {
+    pub fn label(&self) -> &'static str {
+        match self {
+            SchemaVersion::V1 => "v1",
+            SchemaVersion::V2 => "v2-draft",
+        }
+    }
+
+    pub fn is_draft(&self) -> bool {
+        matches!(self, SchemaVersion::V2)
+    }
+
     fn branch(&self) -> &'static str {
         match self {
             SchemaVersion::V1 => "master",
@@ -77,7 +88,7 @@ impl SchemaTypeTrait for V1SchemaType {
     fn label(&self) -> &'static str {
         match self {
             V1SchemaType::General => "General Section",
-            V1SchemaType::Customer => "Customer Section",
+            V1SchemaType::Customer => "Customer Specific",
             V1SchemaType::Tool => "Tool Specific",
             V1SchemaType::Method => "Method Specific",
             V1SchemaType::DataEvaluation => "Data Evaluation",
@@ -356,6 +367,15 @@ pub enum SchemaCache {
     V2(V2SchemaCache),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct SectionDefinition<'a> {
+    pub name: &'static str,
+    pub schema: &'a Value,
+    pub required: bool,
+    pub extension: bool,
+    pub aliases: &'static [&'static str],
+}
+
 impl SchemaCache {
     // Download all schemas from GitHub
     pub async fn download_all(
@@ -418,22 +438,101 @@ impl SchemaCache {
     }
 
     pub fn all_sections(&self) -> Vec<(&'static str, &Value)> {
+        self.section_definitions()
+            .into_iter()
+            .map(|section| (section.name, section.schema))
+            .collect()
+    }
+
+    pub fn section_definitions(&self) -> Vec<SectionDefinition<'_>> {
         match self {
             SchemaCache::V1(_) => vec![
-                ("General Section", self.general()),
-                ("Customer Section", self.customer()),
-                ("Tool Specific", self.tool()),
-                ("Method Specific", self.method()),
-                ("Data Evaluation", self.data_evaluation()),
-                ("History", self.history()),
+                SectionDefinition {
+                    name: "General Section",
+                    schema: self.general(),
+                    required: true,
+                    extension: false,
+                    aliases: &["generalSection"],
+                },
+                SectionDefinition {
+                    name: "Customer Specific",
+                    schema: self.customer(),
+                    required: false,
+                    extension: true,
+                    aliases: &["Customer Section", "customerSpecific"],
+                },
+                SectionDefinition {
+                    name: "Tool Specific",
+                    schema: self.tool(),
+                    required: false,
+                    extension: true,
+                    aliases: &["Tool Section"],
+                },
+                SectionDefinition {
+                    name: "Method Specific",
+                    schema: self.method(),
+                    required: true,
+                    extension: false,
+                    aliases: &["Method Section", "methodSpecific"],
+                },
+                SectionDefinition {
+                    name: "Data Evaluation",
+                    schema: self.data_evaluation(),
+                    required: false,
+                    extension: false,
+                    aliases: &["dataEvaluation"],
+                },
+                SectionDefinition {
+                    name: "History",
+                    schema: self.history(),
+                    required: false,
+                    extension: true,
+                    aliases: &["history"],
+                },
             ],
             SchemaCache::V2(_) => vec![
-                ("generalSection", self.general()),
-                ("customerSpecific", self.customer()),
-                ("toolSpecific", self.tool()),
-                ("methodSpecific", self.method()),
-                ("dataEvaluation", self.data_evaluation()),
-                ("history", self.history()),
+                SectionDefinition {
+                    name: "generalSection",
+                    schema: self.general(),
+                    required: true,
+                    extension: false,
+                    aliases: &["General Section", "general_section"],
+                },
+                SectionDefinition {
+                    name: "customerSpecific",
+                    schema: self.customer(),
+                    required: false,
+                    extension: true,
+                    aliases: &["Customer Specific", "Customer Section"],
+                },
+                SectionDefinition {
+                    name: "toolSpecific",
+                    schema: self.tool(),
+                    required: false,
+                    extension: true,
+                    aliases: &["Tool Specific", "Tool Section"],
+                },
+                SectionDefinition {
+                    name: "methodSpecific",
+                    schema: self.method(),
+                    required: true,
+                    extension: false,
+                    aliases: &["Method Specific", "Method Section", "method_section"],
+                },
+                SectionDefinition {
+                    name: "dataEvaluation",
+                    schema: self.data_evaluation(),
+                    required: false,
+                    extension: false,
+                    aliases: &["Data Evaluation"],
+                },
+                SectionDefinition {
+                    name: "history",
+                    schema: self.history(),
+                    required: false,
+                    extension: true,
+                    aliases: &["History"],
+                },
             ],
         }
     }
@@ -442,6 +541,26 @@ impl SchemaCache {
         match self {
             SchemaCache::V1(_) => &["General Section", "Method Specific"],
             SchemaCache::V2(_) => &["generalSection", "methodSpecific"],
+        }
+    }
+
+    pub fn schema_source(&self) -> String {
+        let version = match self {
+            SchemaCache::V1(_) => SchemaVersion::V1,
+            SchemaCache::V2(_) => SchemaVersion::V2,
+        };
+        format!(
+            "{}/{}/schema/{}",
+            SCHEMA_BASE_URL,
+            version.branch(),
+            version.folder()
+        )
+    }
+
+    pub fn version_label(&self) -> &'static str {
+        match self {
+            SchemaCache::V1(_) => SchemaVersion::V1.label(),
+            SchemaCache::V2(_) => SchemaVersion::V2.label(),
         }
     }
 }
@@ -583,7 +702,7 @@ mod tests {
     #[test]
     fn test_v1_schema_type_label() {
         assert_eq!(V1SchemaType::General.label(), "General Section");
-        assert_eq!(V1SchemaType::Customer.label(), "Customer Section");
+        assert_eq!(V1SchemaType::Customer.label(), "Customer Specific");
         assert_eq!(V1SchemaType::Tool.label(), "Tool Specific");
         assert_eq!(V1SchemaType::Method.label(), "Method Specific");
         assert_eq!(V1SchemaType::DataEvaluation.label(), "Data Evaluation");

@@ -29,14 +29,16 @@ On Linux/macOS remember to make it executable:
 ### Schema Validation
 
 ```bash
-famdo validate <path-to-json> [--version <v1|v2>] [--no-cache] [--strict]
+famdo validate <path-to-json> [--version <v1|v2|v2-draft>] [--no-cache] [--strict]
 ```
 
-If a section fails validation, the command prints the first failing rule along
-with the schema section name and exits with a non-zero status. With `--strict`,
-validation also fails when required top-level sections are missing or unknown
-top-level sections are present. Use `--no-cache` whenever you need to bypass the
-on-disk schema cache and force a fresh download.
+The command reports the selected schema family, every schema error, missing
+required sections, absent optional sections, and unexpected root-level sections.
+`v1` is the current stable schema line. `v2-draft` is an experimental draft and
+is available as the `v2` compatibility name or the explicit `v2-draft` alias.
+With `--strict`, unexpected root-level sections are errors instead of warnings.
+Use `--no-cache` whenever you need to bypass the on-disk schema cache and force a
+fresh download.
 
 The first run of a new schema version requires internet access so that the CLI
 can download and cache the respective JSON schema fragments. Subsequent runs

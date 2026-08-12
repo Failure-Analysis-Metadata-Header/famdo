@@ -1,10 +1,9 @@
 use clap::Parser;
-use colored::Colorize;
 use famdo::cli::{Cli, Commands};
 use famdo::commands::delete::delete_metadata_field;
 use famdo::commands::edit::edit_famh_file;
 use famdo::commands::extract::extract_and_save_metadata;
-use famdo::commands::validate::validate_json;
+use famdo::commands::validate::validate_json_report;
 
 #[tokio::main]
 async fn main() {
@@ -12,14 +11,8 @@ async fn main() {
 
     match cli.command {
         Commands::Validate(args) => {
-            match validate_json(&args.path, args.version, args.no_cache, args.strict).await {
-                Ok(is_valid) => {
-                    if is_valid {
-                        println!("{}", "FA Metadata Header is valid!".green());
-                    } else {
-                        println!("{}", "FA Metadata Header is invalid!".red());
-                    }
-                }
+            match validate_json_report(&args.path, args.version, args.no_cache, args.strict).await {
+                Ok(report) => print!("{}", report.render_text()),
                 Err(e) => {
                     eprintln!("Error validating JSON: {}", e);
                 }
