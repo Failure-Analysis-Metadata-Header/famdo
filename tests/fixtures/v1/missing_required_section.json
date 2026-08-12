@@ -1,9 +1,9 @@
 {
-  "General Section": {
-    "File Name": "sample.tif",
-    "Time Stamp": "2025-12-09T14:20:00+01:00",
-    "Manufacturer": "Example Instruments",
-    "Tool Name": "Example Tool",
-    "Method": "Optical"
-  }
+    "General Section": {
+        "File Name": "sample.tif",
+        "Time Stamp": "2025-12-09T14:20:00+01:00",
+        "Manufacturer": "Example Instruments",
+        "Tool Name": "Example Tool",
+        "Method": "Optical"
+    }
 }
