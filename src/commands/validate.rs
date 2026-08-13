@@ -163,8 +163,18 @@ pub async fn validate_json_report_with_source(
     revision: Option<&str>,
 ) -> Result<ValidationReport, Box<dyn std::error::Error>> {
     let json_file = load_json(json_file_path)?;
+    validate_json_value_report_with_source(&json_file, version, no_cache, strict, revision).await
+}
+
+pub async fn validate_json_value_report_with_source(
+    json_file: &Value,
+    version: SchemaVersion,
+    no_cache: bool,
+    strict: bool,
+    revision: Option<&str>,
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
     let schema_load = SchemaCache::download_all_with_source(version, !no_cache, revision).await?;
-    let mut report = validate_json_content(&json_file, &schema_load.cache, strict);
+    let mut report = validate_json_content(json_file, &schema_load.cache, strict);
     report.schema_version = schema_load.metadata.requested_family;
     report.schema_source = schema_load.metadata.source_url;
     report.findings.extend(

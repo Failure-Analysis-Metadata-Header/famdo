@@ -16,6 +16,7 @@ pub enum Commands {
     Validate(ValidateArgs),
     Cache(CacheArgs),
     Extract(ExtractArgs),
+    Map(MapArgs),
     Edit(EditArgs),
     Delete(DeleteArgs),
 }
@@ -84,6 +85,25 @@ pub struct ExtractArgs {
 
     #[arg(short, long, default_value = "extracted_metadata.json")]
     pub out: String,
+}
+
+#[derive(Args, Clone)]
+pub struct MapArgs {
+    pub image: String,
+
+    pub connector: String,
+
+    #[arg(short, long, default_value = "metadata_mapped.json")]
+    pub out: String,
+
+    #[arg(long, value_name = "PATH")]
+    pub connector_schema: Option<String>,
+
+    #[arg(short, long, default_value_t = false)]
+    pub no_cache: bool,
+
+    #[arg(long, value_name = "REVISION")]
+    pub revision: Option<String>,
 }
 
 #[derive(Args, Clone)]

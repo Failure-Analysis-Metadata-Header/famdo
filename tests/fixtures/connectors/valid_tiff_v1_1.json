@@ -1,0 +1,188 @@
+{
+  "name": "Test TIFF Connector",
+  "version": "1.0.0",
+  "description": "Complete v1.1 connector used by famdo map tests.",
+  "targetSchemaVersion": "1.1",
+  "mappings": [
+    {
+      "source": {
+        "type": "constant",
+        "value": "example_image.tif"
+      },
+      "target": "/General Section/File Name"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "2025-12-09T14:30:00+01:00"
+      },
+      "target": "/General Section/Time Stamp"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "Test Manufacturer"
+      },
+      "target": "/General Section/Manufacturer"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "Test Tool"
+      },
+      "target": "/General Section/Tool Name"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "SEM"
+      },
+      "target": "/General Section/Method"
+    },
+    {
+      "source": {
+        "type": "tiff-tag",
+        "id": 256,
+        "name": "ImageWidth"
+      },
+      "target": "/General Section/Image Width/Value"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "px"
+      },
+      "target": "/General Section/Image Width/Unit"
+    },
+    {
+      "source": {
+        "type": "tiff-tag",
+        "id": 257,
+        "name": "ImageLength"
+      },
+      "target": "/General Section/Image Height/Value"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "px"
+      },
+      "target": "/General Section/Image Height/Unit"
+    },
+    {
+      "source": {
+        "type": "tiff-tag",
+        "id": 258,
+        "name": "BitsPerSample"
+      },
+      "target": "/General Section/Bit Depth"
+    },
+    {
+      "source": {
+        "type": "tiff-tag",
+        "id": 282,
+        "name": "XResolution"
+      },
+      "transform": {
+        "id": "resolution-to-nm-per-px",
+        "primaryInput": "resolution",
+        "inputs": {
+          "resolution_unit": {
+            "type": "tiff-tag",
+            "id": 296,
+            "name": "ResolutionUnit"
+          }
+        }
+      },
+      "target": "/General Section/Pixel Width/Value"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "nm"
+      },
+      "target": "/General Section/Pixel Width/Unit"
+    },
+    {
+      "source": {
+        "type": "tiff-tag",
+        "id": 283,
+        "name": "YResolution"
+      },
+      "transform": {
+        "id": "resolution-to-nm-per-px",
+        "primaryInput": "resolution",
+        "inputs": {
+          "resolution_unit": {
+            "type": "tiff-tag",
+            "id": 296,
+            "name": "ResolutionUnit"
+          }
+        }
+      },
+      "target": "/General Section/Pixel Height/Value"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "nm"
+      },
+      "target": "/General Section/Pixel Height/Unit"
+    },
+    {
+      "source": {
+        "type": "tiff-tag",
+        "id": 262,
+        "name": "PhotometricInterpretation"
+      },
+      "transform": "photometric-to-color-mode",
+      "target": "/General Section/Color Mode"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": 5
+      },
+      "target": "/Method Specific/Scanning Electron Microscopy/Accelerating Voltage/Value"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "kV"
+      },
+      "target": "/Method Specific/Scanning Electron Microscopy/Accelerating Voltage/Unit"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": 8.5
+      },
+      "target": "/Method Specific/Scanning Electron Microscopy/Working Distance/Value"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": "mm"
+      },
+      "target": "/Method Specific/Scanning Electron Microscopy/Working Distance/Unit"
+    },
+    {
+      "source": {
+        "type": "constant",
+        "value": [
+          "SE2"
+        ]
+      },
+      "target": "/Method Specific/Scanning Electron Microscopy/Signal Type(s)"
+    },
+    {
+      "source": {
+        "type": "tiff-tag",
+        "id": 271,
+        "name": "Make"
+      },
+      "target": "/General Section/Serial Number",
+      "required": false
+    }
+  ]
+}
