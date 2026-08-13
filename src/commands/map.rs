@@ -2,7 +2,7 @@ use crate::commands::extract::{ExtractedTiffMetadata, extract_tiff_metadata};
 use crate::commands::validate::{ValidationReport, validate_json_value_report_with_source};
 use crate::schema::SchemaVersion;
 use crate::utils::{load_json, write_bytes_atomically};
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, SecondsFormat, Utc};
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
@@ -83,6 +83,19 @@ struct Mapping {
 enum SourceSpec {
     TiffTag { id: u16 },
     Constant { value: Value },
+    Runtime { field: RuntimeField },
+}
+
+#[derive(Debug, Clone, Copy)]
+enum RuntimeField {
+    ImageFileName,
+    MappingTimestamp,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeValues {
+    image_file_name: String,
+    mapping_timestamp: String,
 }
 
 #[derive(Debug)]
@@ -141,6 +154,7 @@ pub async fn map_tiff_file(
     validate_connector(&connector_value, &connector_schema)?;
     let connector = parse_connector(&connector_value).map_err(MapError::mapping)?;
     let schema_version = parse_target_schema_version(&connector.target_schema_version)?;
+    let runtime = runtime_values(image_path)?;
 
     let extracted = extract_tiff_metadata(image_path).map_err(|error| {
         MapError::operational(format!("Could not extract TIFF metadata: {error}"))
@@ -166,7 +180,7 @@ pub async fn map_tiff_file(
             )));
         }
 
-        let Some(source_value) = resolve_source(&mapping.source, &tags) else {
+        let Some(source_value) = resolve_source(&mapping.source, &tags, &runtime) else {
             if mapping.required {
                 return Err(MapError::mapping(format!(
                     "Required source for target '{}' is missing",
@@ -181,7 +195,13 @@ pub async fn map_tiff_file(
         };
 
         let value = if let Some(transform) = &mapping.transform {
-            match apply_transform(transform, source_value, &tags, &transform_directory) {
+            match apply_transform(
+                transform,
+                source_value,
+                &tags,
+                &runtime,
+                &transform_directory,
+            ) {
                 Ok(value) => value,
                 Err(failure) if !failure.configuration && !mapping.required => {
                     skipped.push(SkippedMapping {
@@ -378,6 +398,19 @@ fn parse_source(value: &Value) -> Result<SourceSpec, String> {
                 .cloned()
                 .ok_or("Constant source field 'value' is missing")?,
         }),
+        "runtime" => match object
+            .get("field")
+            .and_then(Value::as_str)
+            .ok_or("Runtime source field 'field' is missing")?
+        {
+            "image-file-name" => Ok(SourceSpec::Runtime {
+                field: RuntimeField::ImageFileName,
+            }),
+            "mapping-timestamp" => Ok(SourceSpec::Runtime {
+                field: RuntimeField::MappingTimestamp,
+            }),
+            field => Err(format!("Unsupported runtime source field '{field}'")),
+        },
         source_type => Err(format!("Unsupported connector source type '{source_type}'")),
     }
 }
@@ -478,10 +511,34 @@ fn index_tags(metadata: &ExtractedTiffMetadata) -> Result<BTreeMap<u16, Value>, 
     Ok(tags)
 }
 
-fn resolve_source(source: &SourceSpec, tags: &BTreeMap<u16, Value>) -> Option<Value> {
+fn runtime_values(image_path: &str) -> Result<RuntimeValues, MapError> {
+    let image_file_name = Path::new(image_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(str::to_owned)
+        .ok_or_else(|| {
+            MapError::operational(format!(
+                "Could not determine the input image filename from '{image_path}'"
+            ))
+        })?;
+    Ok(RuntimeValues {
+        image_file_name,
+        mapping_timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+    })
+}
+
+fn resolve_source(
+    source: &SourceSpec,
+    tags: &BTreeMap<u16, Value>,
+    runtime: &RuntimeValues,
+) -> Option<Value> {
     match source {
         SourceSpec::TiffTag { id } => tags.get(id).cloned(),
         SourceSpec::Constant { value } => Some(value.clone()),
+        SourceSpec::Runtime { field } => Some(match field {
+            RuntimeField::ImageFileName => json!(runtime.image_file_name),
+            RuntimeField::MappingTimestamp => json!(runtime.mapping_timestamp),
+        }),
     }
 }
 
@@ -489,6 +546,7 @@ fn apply_transform(
     invocation: &TransformInvocation,
     primary_value: Value,
     tags: &BTreeMap<u16, Value>,
+    runtime: &RuntimeValues,
     transform_directory: &Path,
 ) -> Result<Value, TransformFailure> {
     if invocation.id.is_empty()
@@ -542,7 +600,7 @@ fn apply_transform(
     }
     inputs.insert(invocation.primary_input.clone(), primary_value);
     for (name, source) in &invocation.inputs {
-        let Some(value) = resolve_source(source, tags) else {
+        let Some(value) = resolve_source(source, tags, runtime) else {
             return Err(TransformFailure::value(format!(
                 "Transform input '{name}' is missing"
             )));
@@ -1034,8 +1092,17 @@ mod tests {
             inputs: BTreeMap::new(),
             parameters: Map::new(),
         };
-        let error =
-            apply_transform(&invocation, json!("1/2"), &BTreeMap::new(), &transforms).unwrap_err();
+        let error = apply_transform(
+            &invocation,
+            json!("1/2"),
+            &BTreeMap::new(),
+            &RuntimeValues {
+                image_file_name: "sample.tif".to_owned(),
+                mapping_timestamp: "2026-08-13T08:00:00Z".to_owned(),
+            },
+            &transforms,
+        )
+        .unwrap_err();
         assert!(error.configuration);
         assert!(error.message.contains("not declared"));
     }
@@ -1064,19 +1131,68 @@ mod tests {
                             "resolution_unit": {"type": "tiff-tag", "id": 296}
                         }
                     }
+                },
+                {
+                    "source": {"type": "runtime", "field": "image-file-name"},
+                    "target": "/General Section/File Name"
+                },
+                {
+                    "source": {"type": "runtime", "field": "mapping-timestamp"},
+                    "target": "/General Section/Time Stamp"
                 }
             ]
         });
         let parsed = parse_connector(&connector).unwrap();
         assert_eq!(parsed.target_schema_version, "1.1");
-        assert_eq!(parsed.mappings.len(), 3);
+        assert_eq!(parsed.mappings.len(), 5);
         assert!(matches!(
             parsed.mappings[0].source,
             SourceSpec::TiffTag { id: 256 }
         ));
+        assert!(matches!(
+            parsed.mappings[3].source,
+            SourceSpec::Runtime {
+                field: RuntimeField::ImageFileName
+            }
+        ));
+        assert!(matches!(
+            parsed.mappings[4].source,
+            SourceSpec::Runtime {
+                field: RuntimeField::MappingTimestamp
+            }
+        ));
         assert_eq!(
             parsed.mappings[2].transform.as_ref().unwrap().primary_input,
             "resolution"
+        );
+    }
+
+    #[test]
+    fn test_runtime_sources_resolve_generated_values() {
+        let runtime = RuntimeValues {
+            image_file_name: "sample.tiff".to_owned(),
+            mapping_timestamp: "2026-08-13T08:00:00Z".to_owned(),
+        };
+        let tags = BTreeMap::new();
+        assert_eq!(
+            resolve_source(
+                &SourceSpec::Runtime {
+                    field: RuntimeField::ImageFileName
+                },
+                &tags,
+                &runtime
+            ),
+            Some(json!("sample.tiff"))
+        );
+        assert_eq!(
+            resolve_source(
+                &SourceSpec::Runtime {
+                    field: RuntimeField::MappingTimestamp
+                },
+                &tags,
+                &runtime
+            ),
+            Some(json!("2026-08-13T08:00:00Z"))
         );
     }
 
