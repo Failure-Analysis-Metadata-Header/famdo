@@ -1,9 +1,186 @@
-use crate::schema::{SchemaCache, SchemaVersion};
+use crate::cli::FailOn;
+use crate::schema::{SchemaCache, SchemaVersion, SectionDefinition};
 use crate::utils::load_json;
-use colored::Colorize;
-use jsonschema;
 use serde_json::{Map, Value};
-use std::collections::HashSet;
+use std::fmt;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FindingSeverity {
+    Error,
+    Warning,
+    Info,
+}
+impl FindingSeverity {
+    fn label(self) -> &'static str {
+        match self {
+            FindingSeverity::Error => "ERROR",
+            FindingSeverity::Warning => "WARNING",
+            FindingSeverity::Info => "INFO",
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidationFinding {
+    pub severity: FindingSeverity,
+    pub path: String,
+    pub message: String,
+    pub suggestion: Option<String>,
+    pub rule: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SectionValidationReport {
+    pub name: String,
+    pub present: bool,
+    pub valid: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidationReport {
+    pub schema_version: String,
+    pub schema_source: String,
+    pub sections: Vec<SectionValidationReport>,
+    pub findings: Vec<ValidationFinding>,
+}
+
+impl ValidationReport {
+    pub fn has_errors(&self) -> bool {
+        self.findings
+            .iter()
+            .any(|finding| finding.severity == FindingSeverity::Error)
+    }
+
+    pub fn counts(&self) -> (usize, usize, usize) {
+        self.findings.iter().fold(
+            (0, 0, 0),
+            |(errors, warnings, infos), finding| match finding.severity {
+                FindingSeverity::Error => (errors + 1, warnings, infos),
+                FindingSeverity::Warning => (errors, warnings + 1, infos),
+                FindingSeverity::Info => (errors, warnings, infos + 1),
+            },
+        )
+    }
+
+    pub fn fails_on(&self, fail_on: FailOn) -> bool {
+        self.has_errors()
+            || (fail_on == FailOn::Warning
+                && self
+                    .findings
+                    .iter()
+                    .any(|finding| finding.severity == FindingSeverity::Warning))
+    }
+
+    pub fn json_value(&self) -> Value {
+        let (errors, warnings, infos) = self.counts();
+        serde_json::json!({
+            "tool_version": env!("CARGO_PKG_VERSION"),
+            "schema": {
+                "family": self.schema_version,
+                "source": self.schema_source,
+            },
+            "result": if self.has_errors() { "invalid" } else { "valid" },
+            "counts": {
+                "error": errors,
+                "warning": warnings,
+                "info": infos,
+            },
+            "sections": self.sections.iter().map(|section| serde_json::json!({
+                "name": section.name,
+                "present": section.present,
+                "valid": section.valid,
+            })).collect::<Vec<_>>(),
+            "findings": self.findings.iter().map(|finding| serde_json::json!({
+                "severity": finding.severity.label().to_ascii_lowercase(),
+                "path": finding.path,
+                "message": finding.message,
+                "suggestion": finding.suggestion,
+                "rule": finding.rule,
+            })).collect::<Vec<_>>(),
+        })
+    }
+
+    pub fn render_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(&self.json_value())
+    }
+
+    pub fn render_text(&self) -> String {
+        self.render_text_with_color(false)
+    }
+
+    pub fn render_text_with_color(&self, color: bool) -> String {
+        let mut output = format!(
+            "Schema: {} (source: {})\n",
+            self.schema_version, self.schema_source
+        );
+
+        if !self.findings.is_empty() {
+            output.push('\n');
+            for finding in &self.findings {
+                output.push_str(&format!(
+                    "{} {}\n        {}\n",
+                    colorize_severity(finding.severity, color),
+                    finding.path,
+                    finding.message
+                ));
+                if let Some(suggestion) = &finding.suggestion {
+                    output.push_str(&format!("        Suggestion: {suggestion}\n"));
+                }
+            }
+        }
+
+        let (errors, warnings, infos) = self.counts();
+        output.push_str(&format!(
+            "\nResult: {} ({errors} errors, {warnings} warnings, {infos} info)\n",
+            if self.has_errors() {
+                "invalid"
+            } else {
+                "valid"
+            }
+        ));
+        output
+    }
+}
+
+impl fmt::Display for ValidationFinding {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}: {}", self.path, self.message)
+    }
+}
+
+pub async fn validate_json_report(
+    json_file_path: &str,
+    version: SchemaVersion,
+    no_cache: bool,
+    strict: bool,
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
+    validate_json_report_with_source(json_file_path, version, no_cache, strict, None).await
+}
+
+pub async fn validate_json_report_with_source(
+    json_file_path: &str,
+    version: SchemaVersion,
+    no_cache: bool,
+    strict: bool,
+    revision: Option<&str>,
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
+    let json_file = load_json(json_file_path)?;
+    let schema_load = SchemaCache::download_all_with_source(version, !no_cache, revision).await?;
+    let mut report = validate_json_content(&json_file, &schema_load.cache, strict);
+    report.schema_version = schema_load.metadata.requested_family;
+    report.schema_source = schema_load.metadata.source_url;
+    report.findings.extend(
+        schema_load
+            .warnings
+            .into_iter()
+            .map(|message| ValidationFinding {
+                severity: FindingSeverity::Warning,
+                path: "/".to_owned(),
+                message,
+                suggestion: None,
+                rule: "schema-cache",
+            }),
+    );
+    Ok(report)
+}
 
 pub async fn validate_json(
     json_file_path: &str,
@@ -11,111 +188,173 @@ pub async fn validate_json(
     no_cache: bool,
     strict: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    let schema_cache = SchemaCache::download_all(version, !no_cache).await?;
-    let json_file = load_json(json_file_path)?;
-
-    validate_json_content(&json_file, &schema_cache, strict)
+    let report = validate_json_report(json_file_path, version, no_cache, strict).await?;
+    Ok(!report.has_errors())
 }
 
 fn validate_json_content(
     json_file: &Value,
     schema_cache: &SchemaCache,
     strict: bool,
-) -> Result<bool, Box<dyn std::error::Error>> {
-    let Some(top_level) = json_file.as_object() else {
-        return Err("Input JSON must be an object at top level".into());
+) -> ValidationReport {
+    let mut report = ValidationReport {
+        schema_version: schema_cache.version_label().to_owned(),
+        schema_source: schema_cache.schema_source(),
+        sections: Vec::new(),
+        findings: Vec::new(),
     };
 
-    let mut json_valid: bool = true;
+    let Some(top_level) = json_file.as_object() else {
+        report.findings.push(ValidationFinding {
+            severity: FindingSeverity::Error,
+            path: "/".to_owned(),
+            message: "Input JSON must be an object at the top level.".to_owned(),
+            suggestion: None,
+            rule: "top-level-object",
+        });
+        return report;
+    };
 
-    let known_sections = schema_cache.all_sections();
-    let allowed_section_names: HashSet<&str> = known_sections
-        .iter()
-        .map(|(section_name, _)| *section_name)
-        .collect();
+    let definitions = schema_cache.section_definitions();
+    report_unknown_sections(top_level, &definitions, strict, &mut report);
 
-    let mut unknown_sections: Vec<&str> = top_level
-        .keys()
-        .map(String::as_str)
-        .filter(|section_name| !allowed_section_names.contains(section_name))
-        .collect();
-    unknown_sections.sort_unstable();
+    for section in definitions {
+        let present = top_level.contains_key(section.name);
+        report.sections.push(SectionValidationReport {
+            name: section.name.to_owned(),
+            present,
+            valid: present || !section.required,
+        });
 
-    if !unknown_sections.is_empty() {
-        println!(
-            "Unknown root-level sections: {}",
-            unknown_sections.join(", ").yellow()
-        );
-        if strict {
-            json_valid = false;
+        if !present {
+            let (severity, rule, message) = if section.required {
+                (
+                    FindingSeverity::Error,
+                    "required-section",
+                    "Required section is missing.",
+                )
+            } else {
+                (
+                    FindingSeverity::Info,
+                    "optional-section",
+                    "Optional section is not present.",
+                )
+            };
+            report.findings.push(ValidationFinding {
+                severity,
+                path: section_path(section.name),
+                message: message.to_owned(),
+                suggestion: None,
+                rule,
+            });
+            continue;
         }
-    }
 
-    if !verify_required_sections(schema_cache, top_level) {
-        json_valid = false;
-    }
-
-    for (section_name, schema) in known_sections {
-        let section_is_valid = validate_schema_section(top_level, schema, section_name)?;
-        if !section_is_valid {
-            json_valid = false;
-        }
-    }
-
-    Ok(json_valid)
-}
-/// Verify that all required root-level sections exist in the FA Header
-fn verify_required_sections(
-    schema_cache: &SchemaCache,
-    top_level_schema: &Map<String, Value>,
-) -> bool {
-    let mut all_required_sections_exist = true;
-    let mut missing_required: Vec<&str> = schema_cache
-        .required_sections()
-        .iter()
-        .copied()
-        .filter(|required| !top_level_schema.contains_key(*required))
-        .collect();
-    missing_required.sort_unstable();
-
-    if !missing_required.is_empty() {
-        println!(
-            "Missing required sections: {}",
-            missing_required.join(", ").bold()
-        );
-        all_required_sections_exist = false;
-    }
-    all_required_sections_exist
-}
-
-fn validate_schema_section(
-    top_level_schema: &Map<String, Value>,
-    schema: &Value,
-    section_name: &str,
-) -> Result<bool, Box<dyn std::error::Error>> {
-    let mut section_is_valid = true;
-    if let Some(section_data) = top_level_schema.get(section_name) {
-        let section_schema = get_section_validation_schema(section_name, schema)?;
-        let validator = jsonschema::validator_for(section_schema)?;
-        let errors: Vec<jsonschema::ValidationError<'_>> =
-            validator.iter_errors(section_data).collect();
-
-        if errors.is_empty() {
-            println!("{} {}", section_name, "section is valid".green());
-        } else {
-            section_is_valid = false;
-            println!(
-                "{} section - {} validation error(s):",
-                section_name,
-                errors.len()
-            );
-            for err in errors {
-                let full_error_path = format!("/{section_name}{}", err.instance_path.as_str());
-                println!("{}: {}", full_error_path.red(), err);
+        let section_data = top_level.get(section.name).expect("section was checked");
+        match validate_section(section, section_data) {
+            Ok(errors) => {
+                let section_report = report
+                    .sections
+                    .last_mut()
+                    .expect("section report was just added");
+                section_report.valid = errors.is_empty();
+                report.findings.extend(errors);
+            }
+            Err(error) => {
+                let section_report = report
+                    .sections
+                    .last_mut()
+                    .expect("section report was just added");
+                section_report.valid = false;
+                report.findings.push(ValidationFinding {
+                    severity: FindingSeverity::Error,
+                    path: section_path(section.name),
+                    message: format!("Could not prepare section validation: {error}"),
+                    suggestion: None,
+                    rule: "schema-preparation",
+                });
             }
         }
     }
-    Ok(section_is_valid)
+
+    report
+}
+
+fn report_unknown_sections(
+    top_level: &Map<String, Value>,
+    definitions: &[SectionDefinition<'_>],
+    strict: bool,
+    report: &mut ValidationReport,
+) {
+    for section_name in top_level.keys().filter(|name| {
+        !definitions
+            .iter()
+            .any(|definition| definition.name == name.as_str())
+    }) {
+        let suggestion = definitions.iter().find_map(|definition| {
+            if definition.aliases.contains(&section_name.as_str()) {
+                Some(definition.name.to_owned())
+            } else {
+                None
+            }
+        });
+        let message = if let Some(target) = &suggestion {
+            format!("Unexpected root-level section; this is a known alias for '{target}'.")
+        } else {
+            "Unexpected root-level section.".to_owned()
+        };
+        report.findings.push(ValidationFinding {
+            severity: if strict {
+                FindingSeverity::Error
+            } else {
+                FindingSeverity::Warning
+            },
+            path: section_path(section_name),
+            message,
+            suggestion,
+            rule: "unknown-root-section",
+        });
+    }
+}
+
+fn validate_section(
+    section: SectionDefinition<'_>,
+    section_data: &Value,
+) -> Result<Vec<ValidationFinding>, Box<dyn std::error::Error>> {
+    let section_schema = get_section_validation_schema(section.name, section.schema)?;
+    let validator = jsonschema::validator_for(section_schema)?;
+    Ok(validator
+        .iter_errors(section_data)
+        .map(|error| ValidationFinding {
+            severity: FindingSeverity::Error,
+            path: format!("{}{}", section_path(section.name), error.instance_path),
+            message: error.to_string(),
+            suggestion: None,
+            rule: "json-schema",
+        })
+        .collect())
+}
+
+fn section_path(section_name: &str) -> String {
+    format!("/{}", escape_json_pointer_token(section_name))
+}
+
+fn colorize_severity(severity: FindingSeverity, color: bool) -> String {
+    let label = severity.label();
+    if !color {
+        return label.to_owned();
+    }
+
+    let code = match severity {
+        FindingSeverity::Error => 31,
+        FindingSeverity::Warning => 33,
+        FindingSeverity::Info => 36,
+    };
+    format!("\x1b[{code}m{label}\x1b[0m")
+}
+
+fn escape_json_pointer_token(token: &str) -> String {
+    token.replace('~', "~0").replace('/', "~1")
 }
 
 fn get_section_validation_schema<'a>(
@@ -136,7 +375,7 @@ fn get_section_validation_schema<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::V2SchemaCache;
+    use crate::schema::{SchemaCache, V2SchemaCache};
     use serde_json::json;
 
     fn v2_test_cache() -> SchemaCache {
@@ -147,144 +386,134 @@ mod tests {
                     "generalSection": {
                         "type": "object",
                         "required": ["fileName"],
-                        "properties": {
-                            "fileName": { "type": "string" }
-                        }
+                        "properties": {"fileName": {"type": "string"}}
                     }
                 }
             }),
-            customer: json!({
-                "type": "object",
-                "properties": {
-                    "customerSpecific": { "type": "object" }
-                }
-            }),
-            tool: json!({
-                "type": "object",
-                "properties": {
-                    "toolSpecific": { "type": "object" }
-                }
-            }),
-            method: json!({
-                "type": "object",
-                "properties": {
-                    "methodSpecific": {
-                        "type": "object",
-                        "required": ["method"],
-                        "properties": {
-                            "method": { "type": "string" }
-                        }
-                    }
-                }
-            }),
-            data_evaluation: json!({
-                "type": "object",
-                "properties": {
-                    "dataEvaluation": { "type": "object" }
-                }
-            }),
-            history: json!({
-                "type": "object",
-                "properties": {
-                    "history": { "type": "object" }
-                }
-            }),
+            customer: json!({"properties": {"customerSpecific": {"type": "object"}}}),
+            tool: json!({"properties": {"toolSpecific": {"type": "object"}}}),
+            method: json!({"properties": {"methodSpecific": {"type": "object"}}}),
+            data_evaluation: json!({"properties": {"dataEvaluation": {"type": "object"}}}),
+            history: json!({"properties": {"history": {"type": "object"}}}),
         })
     }
 
     #[test]
-    fn strict_mode_rejects_missing_required_sections() {
-        let input = json!({
-            "generalSection": { "fileName": "sample.tif" }
-        });
+    fn reports_required_and_optional_missing_sections() {
+        let input = json!({"generalSection": {"fileName": "sample.tif"}});
+        let report = validate_json_content(&input, &v2_test_cache(), false);
 
-        let is_valid = validate_json_content(&input, &v2_test_cache(), true).unwrap();
-        assert!(!is_valid);
+        assert!(report.has_errors());
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "required-section" && finding.path == "/methodSpecific"
+        }));
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "optional-section" && finding.path == "/customerSpecific"
+        }));
     }
 
     #[test]
-    fn strict_mode_rejects_unknown_sections() {
+    fn reports_alias_without_aborting_other_sections() {
         let input = json!({
-            "generalSection": { "fileName": "sample.tif" },
-            "methodSpecific": { "method": "SEM" },
-            "General": {}
+            "generalSection": {"fileName": "sample.tif"},
+            "methodSpecific": {},
+            "General Section": {}
         });
+        let report = validate_json_content(&input, &v2_test_cache(), false);
 
-        let is_valid = validate_json_content(&input, &v2_test_cache(), true).unwrap();
-        assert!(!is_valid);
-    }
-
-    #[test]
-    fn section_validation_uses_inner_section_schema() {
-        let input = json!({
-            "generalSection": {},
-            "methodSpecific": { "method": "SEM" }
-        });
-
-        let is_valid = validate_json_content(&input, &v2_test_cache(), false).unwrap();
-        assert!(!is_valid);
-    }
-
-    #[test]
-    fn validate_schema_section_accepts_valid_section() {
-        let input = json!({
-            "generalSection": {
-                "fileName": "sample.tif",
-                "method": "SEM"
-            }
-        });
-        let top_level = input.as_object().unwrap();
-        let schema = json!({
-            "properties": {
-                "generalSection": {
-                    "type": "object",
-                    "required": ["fileName", "method"],
-                    "properties": {
-                        "fileName": { "type": "string" },
-                        "method": { "type": "string" }
-                    }
-                }
-            }
-        });
-
-        let is_valid = validate_schema_section(top_level, &schema, "generalSection").unwrap();
-        assert!(is_valid);
-    }
-
-    #[test]
-    fn validate_schema_section_reports_multiple_failures() {
-        let input = json!({
-            "generalSection": {
-                "fileName": 123,
-                "method": 456
-            }
-        });
-        let top_level = input.as_object().unwrap();
-        let schema = json!({
-            "properties": {
-                "generalSection": {
-                    "type": "object",
-                    "required": ["fileName", "method"],
-                    "properties": {
-                        "fileName": { "type": "string" },
-                        "method": { "type": "string" }
-                    }
-                }
-            }
-        });
-
-        let section_data = top_level.get("generalSection").unwrap();
-        let section_schema = get_section_validation_schema("generalSection", &schema).unwrap();
-        let validator = jsonschema::validator_for(section_schema).unwrap();
-        let errors: Vec<_> = validator.iter_errors(section_data).collect();
-
+        assert!(!report.has_errors());
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "unknown-root-section"
+                && finding.suggestion.as_deref() == Some("generalSection")
+        }));
         assert!(
-            errors.len() >= 2,
-            "expected multiple errors, got {}",
-            errors.len()
+            report
+                .findings
+                .iter()
+                .filter(|finding| finding.rule == "optional-section")
+                .count()
+                >= 3
         );
+    }
 
-        let is_valid = validate_schema_section(top_level, &schema, "generalSection").unwrap();
-        assert!(!is_valid);
+    #[test]
+    fn reports_schema_errors_with_stable_paths() {
+        let input = json!({
+            "generalSection": {"fileName": 123},
+            "methodSpecific": {}
+        });
+        let report = validate_json_content(&input, &v2_test_cache(), false);
+
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "json-schema" && finding.path == "/generalSection/fileName"
+        }));
+    }
+
+    #[test]
+    fn reports_non_object_input_as_a_structural_error() {
+        let report = validate_json_content(&json!(null), &v2_test_cache(), false);
+
+        assert!(report.has_errors());
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "top-level-object"
+                && finding.severity == FindingSeverity::Error
+                && finding.path == "/"
+        }));
+    }
+
+    #[test]
+    fn strict_mode_promotes_unknown_root_sections_to_errors() {
+        let input = json!({
+            "generalSection": {"fileName": "sample.tif"},
+            "methodSpecific": {},
+            "Method Section": {}
+        });
+        let report = validate_json_content(&input, &v2_test_cache(), true);
+
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "unknown-root-section"
+                && finding.severity == FindingSeverity::Error
+                && finding.suggestion.as_deref() == Some("methodSpecific")
+        }));
+    }
+
+    #[test]
+    fn renders_schema_and_summary() {
+        let input = json!({});
+        let report = validate_json_content(&input, &v2_test_cache(), false);
+        let rendered = report.render_text();
+
+        assert!(rendered.contains("Schema: v2-draft"));
+        assert!(rendered.contains("Result: invalid"));
+    }
+
+    #[test]
+    fn renders_stable_json_report() {
+        let input = json!({});
+        let report = validate_json_content(&input, &v2_test_cache(), false);
+        let rendered = report
+            .render_json()
+            .expect("report should be JSON serializable");
+        let json: Value = serde_json::from_str(&rendered).expect("report should be valid JSON");
+
+        assert_eq!(json["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(json["schema"]["family"], "v2-draft");
+        assert_eq!(json["result"], "invalid");
+        assert_eq!(json["counts"]["error"], 2);
+        assert!(json["findings"].is_array());
+        assert!(json["sections"].is_array());
+    }
+
+    #[test]
+    fn fail_on_warning_also_fails_on_errors() {
+        let input = json!({
+            "generalSection": {"fileName": "sample.tif"},
+            "methodSpecific": {},
+            "Unexpected": {}
+        });
+        let report = validate_json_content(&input, &v2_test_cache(), false);
+
+        assert!(!report.fails_on(FailOn::Error));
+        assert!(report.fails_on(FailOn::Warning));
     }
 }

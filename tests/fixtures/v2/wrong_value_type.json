@@ -1,0 +1,10 @@
+{
+    "generalSection": {
+        "fileName": 42,
+        "timeStamp": "2025-12-09T14:20:00+01:00",
+        "manufacturer": "Example Instruments",
+        "toolName": "Example Tool",
+        "method": "Optical"
+    },
+    "methodSpecific": {}
+}

@@ -29,18 +29,57 @@ On Linux/macOS remember to make it executable:
 ### Schema Validation
 
 ```bash
-famdo validate <path-to-json> [--version <v1|v2>] [--no-cache] [--strict]
+famdo validate <path-to-json> [--version <v1|v2|v2-draft>] [--no-cache] [--strict]
+					 [--format <text|json>] [--fail-on <error|warning>]
 ```
 
-If a section fails validation, the command prints the first failing rule along
-with the schema section name and exits with a non-zero status. With `--strict`,
-validation also fails when required top-level sections are missing or unknown
-top-level sections are present. Use `--no-cache` whenever you need to bypass the
-on-disk schema cache and force a fresh download.
+The command reports the selected schema family, every schema error, missing
+required sections, absent optional sections, and unexpected root-level sections.
+`v1` is the current stable schema line. `v2-draft` is an experimental draft and
+is available as the `v2` compatibility name or the explicit `v2-draft` alias.
+The default validation profile treats unexpected root-level sections as warnings
+and reports absent optional sections as information. With `--strict`, unexpected
+root-level sections are errors instead of warnings. Nested properties remain
+controlled by the selected JSON Schema; permissive schemas may accept unfamiliar
+nested fields.
+Use `--no-cache` whenever you need to bypass the on-disk schema cache and force a
+fresh download.
+
+Validation exits with status `0` when no configured findings fail the threshold,
+`1` when metadata has validation errors (or warnings with `--fail-on warning`),
+and `2` when an operational failure prevents validation, such as a missing input,
+invalid JSON, or unavailable schemas. `--format text` is the default. The JSON
+format is a stable report containing the tool version, schema family and source,
+overall schema result, severity counts, section summaries, and all findings.
+
+For automation, parse the JSON report rather than matching text. Each finding
+contains a severity, JSON Pointer path, message, optional suggestion, and rule
+identifier. The `result` field describes schema validity; `--fail-on warning`
+can still make a schema-valid report fail with exit status `1` when warnings are
+present.
 
 The first run of a new schema version requires internet access so that the CLI
 can download and cache the respective JSON schema fragments. Subsequent runs
 reuse the cached copy unless `--no-cache` is supplied.
+
+Schema sources default to the `master` revision. Pin a branch, tag, or commit
+with `--revision <revision>` when validating or refreshing a cache. Cache
+metadata records the requested family, source URL, revision, retrieval time,
+and SHA-256 for every cached schema file:
+
+Famdo does not broaden schema-defined coordinate dimensions on its own. POI
+dimensionality follows the selected schema source; three-dimensional POI
+acceptance remains deferred until the corresponding schema repository update.
+
+```bash
+famdo cache inspect [--version <v1|v2|v2-draft>] [--revision <revision>]
+famdo cache refresh [--version <v1|v2|v2-draft>] [--revision <revision>]
+```
+
+`cache refresh` forces a download. `cache inspect` displays the metadata for a
+matching source, and reports a missing cache with exit status `2`. If a cache
+cannot be written during validation, famdo continues the validation and emits a
+`WARNING` finding describing the cache problem.
 
 ### Metadata Extraction
 Utility function to extract metadata from a TIFF file:
