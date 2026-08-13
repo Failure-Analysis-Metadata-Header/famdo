@@ -91,6 +91,31 @@ famdo extract <path-to-tiff> [--out <out-path>]
 The extracted JSON reports each TIFF tag with its numeric TIFF `id`, human-readable
 `tag` name, raw `value`, and TIFF value `type`. The numeric `id` is the stable
 cross-tool identifier and should be preferred when building connector mappings.
+The legacy top-level `dimensions` and `tags` fields describe the first image
+directory (IFD 0). The `ifds` array contains the dimensions and tags for every
+image directory in a multi-page TIFF. Any tag-read problems are retained in the
+`diagnostics` array; `extract` exits with status `1` when diagnostics are present
+and status `2` for an operational failure such as an unreadable input or output.
+
+### Metadata Mapping
+Apply a connector to TIFF metadata and create a validated FAMH document:
+
+```bash
+famdo map <path-to-tiff> <path-to-connector.json> \
+  [--out <out-path>] [--connector-schema <path>] \
+  [--no-cache] [--revision <revision>]
+```
+
+The connector is validated against a local `connector-schema.json`. When
+`--connector-schema` is omitted, famdo resolves the schema relative to the
+connector file and its parent directory. TIFF tag sources are matched by their
+numeric IDs and currently read from IFD 0. Constants and the supported
+connector transforms are applied to RFC 6901 target pointers before the result
+is validated against the connector's FAMH target schema. The output file is
+written only when validation succeeds. Optional missing sources and
+non-applicable optional transforms are reported as warnings; ambiguous
+metadata is never copied or guessed. Connector target schema version `2` is
+not supported by `map` yet.
 
 ### Metadata Editing
 Update a single field in an existing FAMH JSON document:
