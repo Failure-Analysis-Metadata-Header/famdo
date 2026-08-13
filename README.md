@@ -91,6 +91,11 @@ famdo extract <path-to-tiff> [--out <out-path>]
 The extracted JSON reports each TIFF tag with its numeric TIFF `id`, human-readable
 `tag` name, raw `value`, and TIFF value `type`. The numeric `id` is the stable
 cross-tool identifier and should be preferred when building connector mappings.
+The legacy top-level `dimensions` and `tags` fields describe the first image
+directory (IFD 0). The `ifds` array contains the dimensions and tags for every
+image directory in a multi-page TIFF. Any tag-read problems are retained in the
+`diagnostics` array; `extract` exits with status `1` when diagnostics are present
+and status `2` for an operational failure such as an unreadable input or output.
 
 ### Metadata Editing
 Update a single field in an existing FAMH JSON document:

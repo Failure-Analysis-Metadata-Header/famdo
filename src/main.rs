@@ -2,7 +2,7 @@ use clap::Parser;
 use famdo::cli::{CacheCommands, Cli, Commands, OutputFormat};
 use famdo::commands::delete::delete_metadata_field;
 use famdo::commands::edit::edit_famh_file;
-use famdo::commands::extract::extract_and_save_metadata;
+use famdo::commands::extract::extract_and_save_metadata_with_report;
 use famdo::commands::validate::validate_json_report_with_source;
 use famdo::schema::SchemaCache;
 use std::io::IsTerminal;
@@ -109,16 +109,26 @@ async fn main() -> ExitCode {
                 }
             }
         },
-        Commands::Extract(args) => match extract_and_save_metadata(&args.path, &args.out) {
-            Ok(_) => {
-                println!("Extracted image metadata and saved to {}", &args.out);
-                ExitCode::SUCCESS
+        Commands::Extract(args) => {
+            match extract_and_save_metadata_with_report(&args.path, &args.out) {
+                Ok(metadata) if metadata.has_diagnostics() => {
+                    eprintln!(
+                        "Extracted image metadata with {} diagnostic(s) and saved to {}",
+                        metadata.diagnostics.len(),
+                        &args.out
+                    );
+                    ExitCode::from(1)
+                }
+                Ok(_) => {
+                    println!("Extracted image metadata and saved to {}", &args.out);
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("Could not extract metadata: {e}");
+                    ExitCode::from(2)
+                }
             }
-            Err(e) => {
-                println!("Could not extract metadata: {e}");
-                ExitCode::SUCCESS
-            }
-        },
+        }
         Commands::Edit(args) => {
             match edit_famh_file(&args.path, args.field, args.value, &args.out, args.version) {
                 Ok(()) => {
